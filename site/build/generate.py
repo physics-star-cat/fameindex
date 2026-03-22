@@ -166,6 +166,9 @@ def build_site(week: str) -> None:
             wk_html = build_week_page(w)
             _write_page(f"week/{w}/index.html", wk_html)
 
+    # Generate sitemap and robots.txt
+    build_sitemap(week, persons, posts, all_weeks[:12])
+
 
 def build_ranking_page(week: str) -> str:
     """
@@ -398,3 +401,77 @@ def build_blog_index() -> str:
         posts=post_list,
         page_number=PAGE_BLOG_BASE,
     )
+
+
+SITE_URL = "https://fameindex.net"
+
+
+def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
+    """
+    Generate sitemap.xml and robots.txt.
+
+    Args:
+        week: Current ISO week string.
+        persons: List of Person objects.
+        posts: List of BlogPost objects.
+        weeks: List of week strings with scores.
+    """
+    from datetime import date
+
+    today = date.today().isoformat()
+
+    urls = []
+
+    # Homepage — highest priority, changes weekly
+    urls.append(_sitemap_url("/", today, "weekly", "1.0"))
+
+    # Category pages
+    for category in PAGE_CATEGORIES:
+        urls.append(_sitemap_url(f"/category/{category}/", today, "weekly", "0.8"))
+
+    # Region pages
+    for region in PAGE_REGIONS:
+        urls.append(_sitemap_url(f"/region/{region}/", today, "weekly", "0.8"))
+
+    # Person profiles — change weekly
+    for person in persons:
+        urls.append(_sitemap_url(f"/person/{person.slug}/", today, "weekly", "0.7"))
+
+    # Week snapshots — don't change once published
+    for w in weeks:
+        priority = "0.9" if w == week else "0.5"
+        freq = "weekly" if w == week else "never"
+        urls.append(_sitemap_url(f"/week/{w}/", today, freq, priority))
+
+    # Blog posts
+    urls.append(_sitemap_url("/blog/", today, "weekly", "0.6"))
+    for post in posts:
+        urls.append(_sitemap_url(f"/blog/{post.week}/", today, "never", "0.6"))
+
+    # Build XML
+    xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
+    xml_lines.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
+    for url in urls:
+        xml_lines.append("  <url>")
+        xml_lines.append(f"    <loc>{url['loc']}</loc>")
+        xml_lines.append(f"    <lastmod>{url['lastmod']}</lastmod>")
+        xml_lines.append(f"    <changefreq>{url['changefreq']}</changefreq>")
+        xml_lines.append(f"    <priority>{url['priority']}</priority>")
+        xml_lines.append("  </url>")
+    xml_lines.append("</urlset>")
+
+    sitemap_xml = "\n".join(xml_lines) + "\n"
+    _write_page("sitemap.xml", sitemap_xml)
+
+    # robots.txt
+    robots = f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n"
+    _write_page("robots.txt", robots)
+
+
+def _sitemap_url(path: str, lastmod: str, changefreq: str, priority: str) -> dict:
+    return {
+        "loc": f"{SITE_URL}{path}",
+        "lastmod": lastmod,
+        "changefreq": changefreq,
+        "priority": priority,
+    }
