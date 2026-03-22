@@ -43,10 +43,10 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fameindex.net/region/global/</loc>
+    <loc>https://fameindex.net/methodology/</loc>
     <lastmod>2026-03-22</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://fameindex.net/region/us/</loc>

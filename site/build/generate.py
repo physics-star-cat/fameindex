@@ -122,7 +122,17 @@ def build_site(week: str) -> None:
     Args:
         week: ISO week string for the current build.
     """
+    # Clean and recreate output directory for a fresh build
+    import shutil
+    if os.path.exists(OUTPUT_DIR):
+        shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    # Copy static assets into output
+    static_src = os.path.join(os.path.dirname(__file__), "..", "static")
+    static_dst = os.path.join(OUTPUT_DIR, "static")
+    if os.path.exists(static_src):
+        shutil.copytree(static_src, static_dst)
 
     # Build the main ranking page (also serves as index)
     ranking_html = build_ranking_page(week)
@@ -158,6 +168,10 @@ def build_site(week: str) -> None:
         blog_html = build_blog_page(post.week)
         if blog_html:
             _write_page(f"blog/{post.week}/index.html", blog_html)
+
+    # Build methodology page
+    methodology_html = build_methodology_page()
+    _write_page("methodology/index.html", methodology_html)
 
     # Build previous week pages (last 12 weeks)
     all_weeks = get_all_scored_weeks()
@@ -314,13 +328,16 @@ def build_week_page(week: str) -> str:
         "fastest_faller": movers["fallers"][0][1] if movers["fallers"] else "—",
     }
 
-    prev = previous_week(week)
-    # Determine next week (if scores exist for it)
+    # Determine prev/next weeks (only if scores exist for them)
     all_weeks = get_all_scored_weeks()
+    prev = None
     next_week = None
     for i, w in enumerate(all_weeks):
-        if w == week and i > 0:
-            next_week = all_weeks[i - 1]
+        if w == week:
+            if i < len(all_weeks) - 1:
+                prev = all_weeks[i + 1]
+            if i > 0:
+                next_week = all_weeks[i - 1]
             break
 
     week_num = int(week.split("-W")[1]) if "-W" in week else 0
@@ -403,6 +420,16 @@ def build_blog_index() -> str:
     )
 
 
+PAGE_METHODOLOGY = 500
+
+
+def build_methodology_page() -> str:
+    """Generate the methodology / how-it-works page."""
+    env = _get_env()
+    template = env.get_template("methodology.html")
+    return template.render(page_number=PAGE_METHODOLOGY)
+
+
 SITE_URL = "https://fameindex.net"
 
 
@@ -429,8 +456,13 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
     for category in PAGE_CATEGORIES:
         urls.append(_sitemap_url(f"/category/{category}/", today, "weekly", "0.8"))
 
-    # Region pages
+    # Methodology page
+    urls.append(_sitemap_url("/methodology/", today, "monthly", "0.7"))
+
+    # Region pages (skip "global" — homepage serves as global ranking)
     for region in PAGE_REGIONS:
+        if region == "global":
+            continue
         urls.append(_sitemap_url(f"/region/{region}/", today, "weekly", "0.8"))
 
     # Person profiles — change weekly
