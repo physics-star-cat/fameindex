@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} — Fame Index Blog{% endblock %}
+{% block description %}{{ post.summary }}{% endblock %}
+{% block canonical %}https://fameindex.net/blog/{{ post.week }}{% endblock %}
+
+{% block schema %}
+{{ blog_schema|safe }}
+{% endblock %}
+
+{% block timestamp %}{{ post.date }}{% endblock %}
+
+{% block content %}
+<article class="blog-post">
+    <h2>{{ post.title }}</h2>
+    <div class="post-meta">
+        <span class="post-date">Week {{ post.week }}</span>
+    </div>
+    <div class="post-content">
+        {{ post.content|safe }}
+    </div>
+    <nav class="post-nav">
+        {% if post.previous_week %}
+        <a href="/blog/{{ post.previous_week }}" class="prev">◄ Previous week</a>
+        {% endif %}
+        {% if post.next_week %}
+        <a href="/blog/{{ post.next_week }}" class="next">Next week ►</a>
+        {% endif %}
+    </nav>
+</article>
+{% endblock %}

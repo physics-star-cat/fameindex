@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Fame Index — Week {{ week }} Snapshot{% endblock %}
+{% block description %}Fame Index rankings and highlights for week {{ week }}.{% endblock %}
+{% block canonical %}https://fameindex.net/week/{{ week }}{% endblock %}
+
+{% block timestamp %}Week {{ week }}{% endblock %}
+
+{% block content %}
+<section class="week-snapshot">
+    <h2>WEEK {{ week }}</h2>
+
+    <div class="week-highlights">
+        <div class="highlight">
+            <span class="highlight-label">NUMBER ONE</span>
+            <span class="highlight-value">{{ highlights.number_one }}</span>
+        </div>
+        <div class="highlight">
+            <span class="highlight-label">BIGGEST CLIMBER</span>
+            <span class="highlight-value">{{ highlights.biggest_climber }}</span>
+        </div>
+        <div class="highlight">
+            <span class="highlight-label">FASTEST FALLER</span>
+            <span class="highlight-value">{{ highlights.fastest_faller }}</span>
+        </div>
+    </div>
+
+    <h3>FULL RANKINGS</h3>
+    {% include "_ranking_table.html" %}
+
+    <div class="week-nav">
+        {% if previous_week %}
+        <a href="/week/{{ previous_week }}">◄ Week {{ previous_week }}</a>
+        {% endif %}
+        {% if next_week %}
+        <a href="/week/{{ next_week }}">Week {{ next_week }} ►</a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

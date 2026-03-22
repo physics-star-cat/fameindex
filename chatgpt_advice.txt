@@ -1,0 +1,297 @@
+This is a viable concept if you execute it with discipline. A few structured thoughts.
+
+**Core value proposition**
+A continuously updated, quantitative “fame index” that ranks public figures across regions, sectors, and time. The hook is movement and comparison, not static fame.
+
+**Data & methodology (critical)**
+
+* Inputs: search volume (Google Trends), social mentions (X, Instagram, TikTok, Reddit), news volume, Wikipedia page views.
+* Sentiment split: positive / negative / neutral, shown explicitly.
+* Time weighting: recent spikes matter more than legacy fame.
+* Transparency: publish a clear methodology page. This builds credibility and prevents “arbitrary score” criticism.
+
+**Differentiation**
+
+* “Momentum” score (week-on-week delta).
+* Regional fame vs global fame comparison.
+* Sector lenses (politics, sport, entertainment, tech).
+* Controversy index (high fame + negative sentiment).
+
+**User flows**
+
+* Landing → Top 100 global → filter (region/sector) → individual profile.
+* Profiles show trend graphs, sentiment mix, recent headlines.
+* Internal links everywhere to maximise session depth.
+
+**Content strategy**
+
+* Weekly blog is smart:
+
+  * “Biggest climbers this week”
+  * “Fastest fallers”
+  * “Why X spiked” (short, chart-driven posts)
+* This content is SEO-friendly and shareable.
+
+**Monetisation**
+
+* Display ads initially.
+* Later: sponsored analysis, data API, premium dashboards.
+* Avoid paywalls early; scale traffic first.
+
+**Risks**
+
+* Data reliability and scraping limits.
+* Legal caution: avoid defamatory framing; stick to “sentiment” not judgment.
+* Algorithm gaming—expect attempts.
+
+**Opinion**
+This works if you treat it as a data product first, content site second. The league-table mechanic is strong, but only if the scoring feels defensible and updates frequently.
+
+If useful, I can sketch:
+
+* A concrete scoring formula
+* A minimal MVP architecture
+* SEO-first page structure
+* A 90-day launch plan
+
+Below is a **practical SEO-first operating model**, focused on scale, crawlability, and recurring traffic.
+
+---
+
+## 1. Information architecture (non-negotiable)
+
+**Indexable, static URLs**
+
+* `/fame-index/` (global hub)
+* `/fame-index/global/`
+* `/fame-index/uk/`, `/us/`, `/eu/`
+* `/fame-index/uk/politics/`, `/sport/`, `/music/`
+* `/person/{name-slug}/`
+
+Each combination must be:
+
+* Pre-rendered
+* Internally linked
+* Canonicalised correctly
+
+No JS-only filtering for core pages.
+
+---
+
+## 2. Keyword capture strategy
+
+**Head terms**
+
+* “most famous people in the world”
+* “most famous person in UK”
+* “famous people ranking”
+
+**Long-tail (where volume really is)**
+
+* “why is [person] trending”
+* “is [person] more famous than [person]”
+* “most talked about politicians this week”
+* “famous people sentiment score”
+
+Every ranking page targets one clear query.
+
+---
+
+## 3. Programmatic SEO pages
+
+Auto-generate:
+
+* Weekly snapshots: `/week/{yyyy-mm-dd}/`
+* “Biggest movers this week”
+* “Most controversial figures in {region}`
+
+These pages are gold for freshness signals.
+
+---
+
+## 4. Person profile pages (core asset)
+
+Each page includes:
+
+* 300–500 words unique text (auto-assisted but edited)
+* Trend charts (crawlable alt text + captions)
+* Recent headlines (summarised, not copied)
+* FAQs (schema):
+
+  * “Why is X famous now?”
+  * “Is X popularity rising or falling?”
+
+This wins featured snippets.
+
+---
+
+## 5. Internal linking system
+
+* Every ranking page links to top 20 profiles.
+* Every profile links back to:
+
+  * Region ranking
+  * Sector ranking
+  * Weekly movers page
+* Blog posts link aggressively into rankings.
+
+Think “Wikipedia density”.
+
+---
+
+## 6. Schema & technical SEO
+
+Use:
+
+* `Person`, `ItemList`, `FAQPage`, `Dataset`, `NewsArticle`.
+* Submit a Google News sitemap once publishing weekly analysis.
+* Core Web Vitals must be clean; charts lazy-loaded.
+
+---
+
+## 7. Content cadence (signals to Google)
+
+* Daily: index refresh (even if silent).
+* Weekly: movers & fallers post.
+* Monthly: methodology or retrospective analysis.
+
+Freshness + authority.
+
+---
+
+## 8. Defensive SEO
+
+* Methodology page indexed and linked site-wide.
+* Clear disclaimers: sentiment ≠ endorsement.
+* Author pages for trust (E-E-A-T).
+
+---
+
+## Opinionated takeaway
+
+This only works if you **treat rankings as pages, not views**, and if every filter combination exists to be crawled. Most sites fail by hiding their best content behind JS filters.
+
+If you want, I can next:
+
+* Design a URL + canonical matrix
+* Map schema per page type
+* Draft a launch keyword list
+
+This is a **canonicalisation failure**, and it will absolutely dilute indexing if not fixed decisively. The solution is mechanical.
+
+### The rule (pick one, only one)
+
+Either:
+
+* `https://www.example.com` **or**
+* `https://example.com`
+
+There is no SEO advantage to either. Consistency is everything.
+
+### Required fixes (all of them)
+
+1. **301 redirect at server/CDN level**
+
+* Non-preferred → preferred, globally.
+* No exceptions, no mixed behaviour.
+* This must happen before the page renders.
+
+Examples:
+
+* Nginx / Apache / CloudFront / Cloudflare — all can do this cleanly.
+
+2. **Canonical tags**
+
+* Every page must declare the preferred version:
+
+```html
+<link rel="canonical" href="https://www.example.com/path/" />
+```
+
+Never self-canon to the non-preferred variant.
+
+3. **Internal links**
+
+* 100% of internal links must use the preferred version.
+* One stray link can reintroduce the problem at scale.
+
+4. **Google Search Console**
+
+* Add **both** properties:
+
+  * `https://example.com`
+  * `https://www.example.com`
+* Set the preferred one.
+* Submit sitemaps **only** for the preferred version.
+
+5. **Sitemaps**
+
+* URLs must all match the preferred domain.
+* No mixed entries. Ever.
+
+6. **External tools / CMS**
+
+* Check CMS base URL, analytics, tag manager, feeds, APIs.
+* These often leak the wrong variant.
+
+### Common mistakes to avoid
+
+* Using canonicals without redirects (Google treats this as a hint, not a rule).
+* Letting Cloudflare/CDN handle redirects inconsistently.
+* Mixing www/non-www between desktop and mobile.
+
+### Opinion
+
+Until this is fixed, **any SEO work is partially wasted**. Google will split crawl budget, signals, and link equity. Treat this as a blocking issue, not a minor annoyance.
+
+If you want, tell me:
+
+* Hosting (Apache/Nginx/Cloudflare/AWS)
+* CMS or framework
+
+I’ll give you the exact redirect config.
+
+No. Google does **not** prefer non-[www](http://www). It treats `www` and non-`www` as **separate hosts** and will index whichever you make authoritative.
+
+Your problem is not Google’s preference; it is **your site signalling both**.
+
+### Facts (not opinions)
+
+* Google is neutral on `www` vs non-`www`.
+* Google indexes what is:
+
+  * consistently redirected,
+  * consistently canonicalised,
+  * consistently linked.
+* Mixed signals = split indexing (what you are seeing).
+
+### Which should you choose?
+
+From a practical standpoint:
+
+* **Non-www is simpler** and common for modern sites.
+* **www is technically cleaner** if you ever need subdomain routing, cookies, or CDN tricks.
+
+**SEO impact: zero difference.**
+
+### What matters more than the choice
+
+Once you choose, you must enforce it absolutely:
+
+* One canonical host
+* One sitemap host
+* One internal-link host
+* One redirect rule
+
+### Recommendation
+
+If you are already seeing Google index non-www more:
+
+* Standardise on **non-www**
+* Force **301 www → non-www**
+* Fix canonicals and sitemaps to match
+
+Do not try to “let Google decide”. That always ends badly.
+
+If you want, tell me what stack you’re on (Cloudflare, AWS, Apache, Nginx). I’ll give you the exact redirect rule so this is permanently resolved.
+

@@ -1,0 +1,31 @@
+Weekly Blog Post Template
+========================
+
+Title: Fame Index — Week {week}: {headline}
+
+---
+
+## This Week's Number One
+
+{number_one_name} holds the top spot with a fame score of {score}.
+{number_one_commentary}
+
+## Biggest Climbers
+
+{climbers_section}
+
+## Fastest Fallers
+
+{fallers_section}
+
+## New Entries
+
+{new_entries_section}
+
+## The Controversy Corner
+
+{controversy_section}
+
+---
+
+Published every Friday. Rankings updated weekly.

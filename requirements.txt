@@ -1,0 +1,22 @@
+# Fame Index — Python Dependencies
+
+# Templating
+Jinja2>=3.1
+
+# Database
+SQLAlchemy>=2.0
+
+# Data sources
+requests>=2.31
+pytrends>=4.9
+pandas>=2.0
+feedparser>=6.0
+
+# Text processing
+textblob>=0.17
+
+# Testing
+pytest>=7.0
+
+# Utilities
+python-dateutil>=2.8

@@ -1,0 +1,29 @@
+<section class="ranking-table">
+    <h2>{% if filter_label %}{{ filter_label|upper }} — {% endif %}TOP {{ rankings|length }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th class="rank">#</th>
+                <th class="name">NAME</th>
+                <th class="score">SCORE</th>
+                <th class="momentum">MOM.</th>
+                <th class="change">CHG</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in rankings %}
+            <tr class="rank-row {% if entry.momentum > 0 %}rising{% elif entry.momentum < 0 %}falling{% endif %}">
+                <td class="rank">{{ entry.rank }}</td>
+                <td class="name"><a href="/person/{{ entry.slug }}">{{ entry.name }}</a></td>
+                <td class="score">{{ entry.score }}</td>
+                <td class="momentum">{{ entry.momentum }}</td>
+                <td class="change">
+                    {% if entry.change > 0 %}&#9650;{{ entry.change }}
+                    {% elif entry.change < 0 %}&#9660;{{ entry.change|abs }}
+                    {% else %}&mdash;{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>

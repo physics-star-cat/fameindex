@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Fame Index — {% if filter_label %}{{ filter_label }} — {% endif %}Week {{ week }} Rankings{% endblock %}
+{% block description %}{% if filter_label %}{{ filter_label }} fame rankings{% else %}Who's famous this week? The Fame Index ranks public figures by measurable attention signals{% endif %}.{% endblock %}
+{% block canonical %}https://fameindex.net/week/{{ week }}{% endblock %}
+
+{% block schema %}
+{{ ranking_schema|safe }}
+{% endblock %}
+
+{% block timestamp %}Week {{ week }}{% endblock %}
+
+{% block content %}
+{% include "_ranking_table.html" %}
+{% endblock %}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Fame Index{% endblock %}</title>
+    <meta name="description" content="{% block description %}Weekly fame rankings powered by data.{% endblock %}">
+    <link rel="canonical" href="{% block canonical %}https://fameindex.net{% endblock %}">
+    <link rel="stylesheet" href="/static/css/teletext.css?v=2">
+    {% block schema %}{% endblock %}
+</head>
+<body class="teletext">
+    <header class="teletext-header">
+        <div class="header-top">
+            <div class="page-number">P{{ page_number|default('100') }}</div>
+            <div class="timestamp">{% block timestamp %}{% endblock %}</div>
+        </div>
+        <h1 class="site-title"><span class="title-fame">FAME</span> <span class="title-index">INDEX</span></h1>
+    </header>
+
+    <nav class="teletext-nav">
+        <a href="/">Overall</a>
+        {% block subnav %}
+        <a href="/category/musician/">Music</a>
+        <a href="/category/actor/">Film/TV</a>
+        <a href="/category/athlete/">Sport</a>
+        <a href="/category/politician/">Politics</a>
+        {% endblock %}
+        <a href="/blog/">Blog</a>
+        <a href="/methodology/">How It Works</a>
+    </nav>
+
+    <main class="teletext-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="teletext-footer">
+        <p>Updated weekly. Rankings are data-driven, not editorial.</p>
+    </footer>
+</body>
+</html>

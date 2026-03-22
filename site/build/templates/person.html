@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ person.name }} — Fame Index Profile{% endblock %}
+{% block description %}{{ person.name }}'s fame score, momentum, and weekly ranking history.{% endblock %}
+{% block canonical %}https://fameindex.net/person/{{ person.slug }}{% endblock %}
+
+{% block schema %}
+{{ person_schema|safe }}
+{% endblock %}
+
+{% block content %}
+<article class="person-profile">
+    <h2>{{ person.name }}</h2>
+    <div class="person-stats">
+        <div class="stat">
+            <span class="stat-label">FAME SCORE</span>
+            <span class="stat-value">{{ person.score }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">RANK</span>
+            <span class="stat-value">#{{ person.rank }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">MOMENTUM</span>
+            <span class="stat-value {% if person.momentum > 0 %}rising{% elif person.momentum < 0 %}falling{% endif %}">
+                {{ person.momentum }}
+            </span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">CATEGORY</span>
+            <span class="stat-value">{{ person.category }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">SENTIMENT</span>
+            <span class="stat-value {% if person.sentiment > 0 %}positive{% elif person.sentiment < 0 %}negative{% endif %}">
+                {% if person.sentiment > 0.05 %}Positive{% elif person.sentiment < -0.05 %}Negative{% else %}Neutral{% endif %}
+            </span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">CONTROVERSY</span>
+            <span class="stat-value">{{ person.controversy }}</span>
+        </div>
+    </div>
+
+    <section class="history">
+        <h3>RECENT WEEKS</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>WEEK</th>
+                    <th>SCORE</th>
+                    <th>RANK</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for week in person.history %}
+                <tr>
+                    <td><a href="/week/{{ week.week }}">{{ week.week }}</a></td>
+                    <td>{{ week.score }}</td>
+                    <td>#{{ week.rank }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</article>
+{% endblock %}
