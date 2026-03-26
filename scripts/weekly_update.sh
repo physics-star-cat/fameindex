@@ -51,8 +51,10 @@ if result['errors']:
 # Step 2: Score all persons
 echo "[2/5] Calculating scores..."
 python -c "
-from server.scoring.engine import scores_all
-result = scores_all('$WEEK')
+from server.scoring.engine import score_all
+from server.db.queries import store_scores
+result = score_all('$WEEK')
+store_scores(result)
 print(f'  Scored {len(result)} persons')
 "
 

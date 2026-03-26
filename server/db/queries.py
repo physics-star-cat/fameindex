@@ -170,8 +170,9 @@ def store_blog_post(week: str, title: str, content: str) -> None:
         if existing:
             existing.title = title
             existing.content = content
+            existing.published = True
         else:
-            session.add(BlogPost(week=week, title=title, content=content))
+            session.add(BlogPost(week=week, title=title, content=content, published=True))
         session.commit()
 
 
