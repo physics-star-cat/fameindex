@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}About — Fame Index{% endblock %}
+{% block description %}About the Fame Index: a weekly data-driven ranking of celebrity fame, built by Chris.{% endblock %}
+{% block canonical %}https://fameindex.net/about/{% endblock %}
+
+{% block timestamp %}About{% endblock %}
+
+{% block content %}
+<article class="methodology">
+    <h2>ABOUT</h2>
+
+    <section class="method-section">
+        <p>Hi, I'm Chris. I built the Fame Index because I wanted to know whether fame could be measured — not by gossip columns or gut feeling, but by data.</p>
+        <p>Every week, the index collects signals from across the internet: Wikipedia traffic, streaming numbers, news coverage, social media discussion, and institutional recognition. These are combined into a single score for each person, ranked, and published here.</p>
+        <p>The result is a weekly snapshot of who the world is actually paying attention to. It doesn't measure talent, quality, or moral worth. Just attention.</p>
+    </section>
+
+    <section class="method-section">
+        <h3>HOW IT'S BUILT</h3>
+        <p>The data pipeline pulls from ten public sources across <a href="/methodology/">five dimensions</a>. Scores are recalculated every Friday. The site is static HTML — no tracking beyond basic analytics, no paywalls, no account required.</p>
+        <p>If you're curious about the methodology, there's a <a href="/methodology/">detailed breakdown</a> of how scores work.</p>
+    </section>
+
+    <section class="method-section">
+        <h3>CONTACT</h3>
+        <p>Questions, corrections, or suggestions? Reach me at <strong>chris at fameindex dot net</strong>.</p>
+    </section>
+</article>
+{% endblock %}

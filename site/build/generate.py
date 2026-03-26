@@ -173,6 +173,10 @@ def build_site(week: str) -> None:
     methodology_html = build_methodology_page()
     _write_page("methodology/index.html", methodology_html)
 
+    # Build about page
+    about_html = build_about_page()
+    _write_page("about/index.html", about_html)
+
     # Build previous week pages (last 12 weeks)
     all_weeks = get_all_scored_weeks()
     for w in all_weeks[:12]:
@@ -430,6 +434,16 @@ def build_methodology_page() -> str:
     return template.render(page_number=PAGE_METHODOLOGY)
 
 
+PAGE_ABOUT = 501
+
+
+def build_about_page() -> str:
+    """Generate the about page."""
+    env = _get_env()
+    template = env.get_template("about.html")
+    return template.render(page_number=PAGE_ABOUT)
+
+
 SITE_URL = "https://fameindex.net"
 
 
@@ -458,6 +472,7 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
 
     # Methodology page
     urls.append(_sitemap_url("/methodology/", today, "monthly", "0.7"))
+    urls.append(_sitemap_url("/about/", today, "monthly", "0.5"))
 
     # Region pages (skip "global" — homepage serves as global ranking)
     for region in PAGE_REGIONS:
