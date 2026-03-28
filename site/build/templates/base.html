@@ -6,6 +6,22 @@
     <title>{% block title %}Fame Index{% endblock %}</title>
     <meta name="description" content="{% block description %}Weekly fame rankings powered by data.{% endblock %}">
     <link rel="canonical" href="{% block canonical %}https://fameindex.net{% endblock %}">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="{% block og_title %}Fame Index{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Weekly fame rankings powered by data.{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}https://fameindex.net{% endblock %}">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:site_name" content="Fame Index">
+    <meta property="og:image" content="https://fameindex.net/static/images/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{% block tw_title %}Fame Index{% endblock %}">
+    <meta name="twitter:description" content="{% block tw_description %}Weekly fame rankings powered by data.{% endblock %}">
+
     <link rel="stylesheet" href="/static/css/teletext.css?v=2">
     {% block schema %}{% endblock %}
     <!-- Google Analytics — replace G-SYYZT2X3TF with your Measurement ID -->

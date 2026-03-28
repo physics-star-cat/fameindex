@@ -26,6 +26,25 @@ def _script_tag(data: dict) -> str:
     )
 
 
+def website_schema() -> str:
+    """Generate JSON-LD for the WebSite + Organization entity on the homepage."""
+    website = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Fame Index",
+        "url": SITE_URL,
+        "description": "Weekly fame rankings of public figures, measured by data rather than opinion.",
+    }
+    org = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Fame Index",
+        "url": SITE_URL,
+        "description": "Weekly fame rankings of public figures, measured by data rather than opinion.",
+    }
+    return _script_tag(website) + "\n" + _script_tag(org)
+
+
 def person_schema(person: dict) -> str:
     """
     Generate JSON-LD for a Person entity.

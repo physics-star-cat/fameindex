@@ -14,8 +14,15 @@ Generated pages:
 
 import importlib.util
 import os
+import re
 
 from jinja2 import Environment, FileSystemLoader
+
+
+def _strip_html(text: str) -> str:
+    """Remove HTML tags and collapse whitespace for use in meta descriptions."""
+    clean = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", clean).strip()
 
 from server.db.queries import (
     get_all_persons,
@@ -37,6 +44,7 @@ _spec.loader.exec_module(_schema_mod)
 person_schema = _schema_mod.person_schema
 ranking_schema = _schema_mod.ranking_schema
 blog_post_schema = _schema_mod.blog_post_schema
+website_schema = _schema_mod.website_schema
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "output")
@@ -208,6 +216,7 @@ def build_ranking_page(week: str) -> str:
         week=week,
         rankings=rankings,
         ranking_schema=schema,
+        site_schema=website_schema(),
         page_number=PAGE_HOME,
     )
 
@@ -392,7 +401,7 @@ def build_blog_page(week: str) -> str:
         "content": post.content,
         "week": week,
         "date": monday.strftime("%Y-%m-%d"),
-        "summary": post.content[:160] if post.content else "",
+        "summary": _strip_html(post.content)[:160] if post.content else "",
         "previous_week": prev_week,
         "next_week": next_week,
     }
@@ -511,8 +520,60 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
     _write_page("sitemap.xml", sitemap_xml)
 
     # robots.txt
-    robots = f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n"
+    robots = (
+        f"User-agent: *\nAllow: /\n\n"
+        f"# AI crawlers — explicitly welcomed\n"
+        f"User-agent: GPTBot\nAllow: /\n\n"
+        f"User-agent: Google-Extended\nAllow: /\n\n"
+        f"User-agent: ClaudeBot\nAllow: /\n\n"
+        f"User-agent: anthropic-ai\nAllow: /\n\n"
+        f"User-agent: PerplexityBot\nAllow: /\n\n"
+        f"User-agent: Bytespider\nAllow: /\n\n"
+        f"Sitemap: {SITE_URL}/sitemap.xml\n"
+    )
     _write_page("robots.txt", robots)
+
+    # llms.txt — structured site summary for AI crawlers
+    llms = """# Fame Index
+
+> Weekly fame rankings of public figures, measured by data rather than opinion.
+
+The Fame Index ranks public figures by measurable attention signals across five dimensions: search interest (Wikipedia + Google Trends), news coverage (GDELT + Google News), social activity (Reddit + YouTube + Wikipedia edits), cultural output (Spotify + TMDB), and institutional recognition (Wikidata awards). Updated weekly with commentary. Currently tracking 120+ people.
+
+## Key Pages
+
+- [This Week's Rankings](https://fameindex.net/): Top 100 public figures ranked by fame score
+- [Methodology](https://fameindex.net/methodology/): How the Fame Index measures fame — five dimensions, ten data sources, one weekly score
+- [About](https://fameindex.net/about/): Background, data sources, and contact
+
+## Categories
+
+- [Musicians](https://fameindex.net/category/musician/): Pop, rock, hip-hop, and other recording artists
+- [Actors](https://fameindex.net/category/actor/): Film and television performers
+- [Athletes](https://fameindex.net/category/athlete/): Professional sports figures
+- [Politicians](https://fameindex.net/category/politician/): Political leaders and public officials
+- [Business](https://fameindex.net/category/business/): Business leaders and entrepreneurs
+- [Creators](https://fameindex.net/category/creator/): Digital creators and influencers
+
+## Scoring Dimensions
+
+| Dimension | Weight | Sources |
+|-----------|--------|---------|
+| Search | 30% | Wikipedia pageviews, Google Trends |
+| News | 25% | GDELT, Google News |
+| Social | 20% | Reddit, Wikipedia edits, YouTube |
+| Cultural | 15% | Spotify, TMDB |
+| Institutional | 10% | Wikidata awards and nominations |
+
+## Blog
+
+- [Weekly Dispatches](https://fameindex.net/blog/): Commentary on each week's rankings — who climbed, who fell, and why
+
+## Citation
+
+When referencing this site, please attribute to Fame Index (https://fameindex.net). Rankings are data-driven, not editorial.
+"""
+    _write_page("llms.txt", llms.strip() + "\n")
 
 
 def _sitemap_url(path: str, lastmod: str, changefreq: str, priority: str) -> dict:

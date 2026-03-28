@@ -1,0 +1,38 @@
+# Fame Index
+
+> Weekly fame rankings of public figures, measured by data rather than opinion.
+
+The Fame Index ranks public figures by measurable attention signals across five dimensions: search interest (Wikipedia + Google Trends), news coverage (GDELT + Google News), social activity (Reddit + YouTube + Wikipedia edits), cultural output (Spotify + TMDB), and institutional recognition (Wikidata awards). Updated weekly with commentary. Currently tracking 120+ people.
+
+## Key Pages
+
+- [This Week's Rankings](https://fameindex.net/): Top 100 public figures ranked by fame score
+- [Methodology](https://fameindex.net/methodology/): How the Fame Index measures fame — five dimensions, ten data sources, one weekly score
+- [About](https://fameindex.net/about/): Background, data sources, and contact
+
+## Categories
+
+- [Musicians](https://fameindex.net/category/musician/): Pop, rock, hip-hop, and other recording artists
+- [Actors](https://fameindex.net/category/actor/): Film and television performers
+- [Athletes](https://fameindex.net/category/athlete/): Professional sports figures
+- [Politicians](https://fameindex.net/category/politician/): Political leaders and public officials
+- [Business](https://fameindex.net/category/business/): Business leaders and entrepreneurs
+- [Creators](https://fameindex.net/category/creator/): Digital creators and influencers
+
+## Scoring Dimensions
+
+| Dimension | Weight | Sources |
+|-----------|--------|---------|
+| Search | 30% | Wikipedia pageviews, Google Trends |
+| News | 25% | GDELT, Google News |
+| Social | 20% | Reddit, Wikipedia edits, YouTube |
+| Cultural | 15% | Spotify, TMDB |
+| Institutional | 10% | Wikidata awards and nominations |
+
+## Blog
+
+- [Weekly Dispatches](https://fameindex.net/blog/): Commentary on each week's rankings — who climbed, who fell, and why
+
+## Citation
+
+When referencing this site, please attribute to Fame Index (https://fameindex.net). Rankings are data-driven, not editorial.

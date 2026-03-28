@@ -3,6 +3,12 @@
 {% block title %}{{ post.title }} — Fame Index Blog{% endblock %}
 {% block description %}{{ post.summary }}{% endblock %}
 {% block canonical %}https://fameindex.net/blog/{{ post.week }}{% endblock %}
+{% block og_title %}{{ post.title }} — Fame Index Blog{% endblock %}
+{% block og_description %}{{ post.summary }}{% endblock %}
+{% block og_url %}https://fameindex.net/blog/{{ post.week }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block tw_title %}{{ post.title }} — Fame Index Blog{% endblock %}
+{% block tw_description %}{{ post.summary }}{% endblock %}
 
 {% block schema %}
 {{ blog_schema|safe }}
