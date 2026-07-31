@@ -4,6 +4,7 @@ Tests for the scoring engine.
 Tests the dimension scoring and fame score calculation logic.
 """
 
+import pytest
 from unittest.mock import patch, MagicMock
 
 from server.scoring.engine import calculate_dimension_scores, calculate_fame_score, rank
@@ -92,3 +93,68 @@ class TestRank:
 
     def test_empty_list(self):
         assert rank([]) == []
+
+
+class TestWeightRenormalisation:
+    """
+    Dimension weights are re-normalised across dimensions that actually carry
+    signals.
+
+    Two reasons this matters:
+
+    1. `cultural` has never had a single signal in the database — Spotify and
+       TMDB were never collected — so 15% of every fame score was silently zero.
+    2. Backfilled weeks omit Reddit and YouTube, which cannot be fetched
+       retroactively. Without re-normalisation those weeks would score lower
+       than live weeks purely because of missing inputs, and every person would
+       appear to crash in W14 and recover in W31.
+    """
+
+    @patch("server.scoring.engine.get_signals_for_person_week")
+    def test_missing_dimension_does_not_deflate_score(self, mock_signals):
+        # Only search and news present, both perfect. Present dimensions are
+        # perfect, so the score should be 100 — not 55 (0.30 + 0.25).
+        sigs = [
+            MagicMock(dimension="search", normalised_value=100.0),
+            MagicMock(dimension="news", normalised_value=100.0),
+        ]
+        mock_signals.return_value = sigs
+        result = calculate_fame_score(1, "2026-W18")
+        assert result["fame_score"] == 100.0
+
+    @patch("server.scoring.engine.get_signals_for_person_week")
+    def test_relative_standing_preserved_across_signal_sets(self, mock_signals):
+        # A person scoring 80 on every available dimension should score 80
+        # whether six signals or eight were collected. This is the property
+        # that makes backfilled weeks comparable to live ones.
+        full = [MagicMock(dimension=d, normalised_value=80.0)
+                for d in ["search", "news", "social", "cultural", "institutional"]]
+        mock_signals.return_value = full
+        full_score = calculate_fame_score(1, "2026-W31")["fame_score"]
+
+        partial = [MagicMock(dimension=d, normalised_value=80.0)
+                   for d in ["search", "news", "institutional"]]
+        mock_signals.return_value = partial
+        partial_score = calculate_fame_score(1, "2026-W18")["fame_score"]
+
+        assert full_score == pytest.approx(80.0)
+        assert partial_score == pytest.approx(80.0)
+
+    @patch("server.scoring.engine.get_signals_for_person_week")
+    def test_weights_still_apply_between_present_dimensions(self, mock_signals):
+        # Re-normalisation must not flatten the weighting. search (0.30) and
+        # institutional (0.10) re-normalise to 0.75 / 0.25.
+        sigs = [
+            MagicMock(dimension="search", normalised_value=100.0),
+            MagicMock(dimension="institutional", normalised_value=0.0),
+        ]
+        mock_signals.return_value = sigs
+        result = calculate_fame_score(1, "2026-W18")
+        assert result["fame_score"] == pytest.approx(75.0)
+
+    @patch("server.scoring.engine.get_signals_for_person_week")
+    def test_no_signals_still_zero(self, mock_signals):
+        # Nothing present means nothing to re-normalise; must not divide by zero.
+        mock_signals.return_value = []
+        result = calculate_fame_score(1, "2026-W18")
+        assert result["fame_score"] == 0.0

@@ -36,6 +36,19 @@ def calculate_dimension_scores(person_id: int, week: str) -> dict[str, float]:
     Returns:
         Dict mapping dimension name to score (0-100).
     """
+    scores, _present = _dimension_scores_with_presence(person_id, week)
+    return scores
+
+
+def _dimension_scores_with_presence(person_id: int, week: str) -> tuple[dict[str, float], set[str]]:
+    """
+    Calculate dimension scores, and report which dimensions actually had signals.
+
+    A dimension with no signals scores 0.0, which is indistinguishable from a
+    dimension whose signals were genuinely zero. The caller needs to tell them
+    apart to re-normalise the headline weights, so presence is returned
+    separately rather than inferred from the score.
+    """
     signals = get_signals_for_person_week(person_id, week)
 
     # Group signals by dimension
@@ -47,14 +60,16 @@ def calculate_dimension_scores(person_id: int, week: str) -> dict[str, float]:
 
     # Average each dimension
     scores = {}
+    present = set()
     for dim in DIMENSIONS:
         values = by_dimension[dim]
         if values:
             scores[dim] = sum(values) / len(values)
+            present.add(dim)
         else:
             scores[dim] = 0.0
 
-    return scores
+    return scores, present
 
 
 def calculate_fame_score(person_id: int, week: str) -> dict:
@@ -76,12 +91,29 @@ def calculate_fame_score(person_id: int, week: str) -> dict:
         - "dim_cultural": float (0-100)
         - "dim_institutional": float (0-100)
     """
-    dim_scores = calculate_dimension_scores(person_id, week)
+    dim_scores, present = _dimension_scores_with_presence(person_id, week)
 
-    # Apply private weights to produce headline score
+    # Apply private weights to produce headline score, re-normalised across the
+    # dimensions that actually carry signals.
+    #
+    # Without this, any absent dimension silently subtracts its full weight from
+    # everyone's score. Two cases where that bites:
+    #   - `cultural` (15%) has never had a signal in this database; Spotify and
+    #     TMDB were never collected, so every score was capped at 85.
+    #   - Backfilled weeks omit Reddit and YouTube, which cannot be fetched
+    #     retroactively. Un-normalised, those weeks would score below live weeks
+    #     purely for having fewer inputs, and every person would appear to crash
+    #     in W14 and recover in W31.
+    #
+    # Re-normalising keeps the *relative* weighting between present dimensions
+    # intact while making weeks with different signal coverage comparable.
+    total_weight = sum(w for d, w in DIMENSION_WEIGHTS.items() if d in present)
+
     fame_score = 0.0
-    for dim, weight in DIMENSION_WEIGHTS.items():
-        fame_score += dim_scores.get(dim, 0.0) * weight
+    if total_weight > 0:
+        for dim, weight in DIMENSION_WEIGHTS.items():
+            if dim in present:
+                fame_score += dim_scores.get(dim, 0.0) * (weight / total_weight)
 
     # Clamp to 0-100
     fame_score = max(0.0, min(100.0, fame_score))
