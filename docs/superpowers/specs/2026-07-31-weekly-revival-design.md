@@ -1,7 +1,7 @@
-# Fame Index — weekly revival design
+# Fame Index — quarterly revival design
 
 **Date:** 2026-07-31
-**Status:** approved
+**Status:** approved (revised — moved from weekly to quarterly mid-build)
 
 ## Problem
 
@@ -9,14 +9,24 @@ The site last updated at **2026-W13** (late March). Today is 2026-W31, so roughl
 18 weeks are missing. The existing `scripts/weekly_update.sh` was never run — there
 was no cron job and no failure; the cycle simply never happened.
 
+**Revision (2026-07-31):** the index moves to a **quarterly** cadence. Fame changes
+too slowly for a weekly ranking to say much, and a quarter-long aggregate is far less
+noisy than a sampled week. The header reads "updated quarterly" and the picker shows
+`2026-Q2`.
+
+This made the build cheaper and more accurate. Every source resolves a period to a
+(start, end) range before querying, so a quarter is **one API call per person per
+source**, not thirteen — and the result is a true quarter-long aggregate rather than
+one sampled week standing in for three months.
+
 Three things are needed:
 
-1. Backfill W14–W31 so the archive is complete.
-2. A week picker so visitors can browse past weeks.
-3. A weekly post that says what moved and *why*, in the existing droll register.
+1. Backfill 2026-Q1 and 2026-Q2 so the archive is complete.
+2. A quarter picker so visitors can browse past quarters.
+3. A quarterly post saying what moved, in the existing droll register.
 
-Plus an operational requirement: **one Python script the author runs manually each
-Friday evening** that updates scores, blog and HTML and pushes it live.
+Plus an operational requirement: **one Python script the author runs manually** that
+updates scores, blog and HTML and pushes it live.
 
 ## Key constraint: not all signals are backfillable
 
@@ -40,7 +50,14 @@ values across all 18 weeks — distorting rankings and leaving a visible flat li
 site whose entire premise is "this is what fame looked like in week N".
 
 **Decision:** backfill using historical signals only. Reddit and YouTube are omitted
-from reconstructed weeks rather than fabricated.
+from reconstructed periods rather than fabricated.
+
+**Related defect found during a live smoke test:** `gdelt.py` caught every
+`RequestException` and returned `0`, conflating "nobody wrote about this person" with
+"we could not ask". GDELT rate-limits aggressively, so a 121-person backfill would
+have silently zeroed the news dimension for whoever was unlucky. Now retries with
+backoff and raises — a missing signal degrades gracefully under the re-normalisation
+below, a fabricated zero corrupts invisibly.
 
 ## Design
 
@@ -59,19 +76,17 @@ those week pages so the record stays honest.
 
 ### 2. Backfill — `scripts/backfill.py`
 
-Walks W14→W31: pipeline (historical sources only) → score → store, marking each week
-reconstructed.
+Walks Q1→Q2: pipeline (historical sources only) → score → store.
 
-- ~18 weeks × 121 persons × 4 sources ≈ 8,700 API calls
-- Rate-limited; Google Trends throttles aggressively
-- **Resumable** — skips weeks already scored, so it can be re-run after interruption
-- `--from` / `--to` / `--dry-run` flags
+- 2 quarters × 121 persons × 5 sources ≈ 1,200 API calls
+- Rate-limited; Google Trends and GDELT both throttle
+- **Resumable** — skips periods already scored, so it can be re-run after interruption
+- `--from` / `--to` / `--dry-run` / `--force` flags
 
-### 3. Week picker
+### 3. Quarter picker
 
-Button top-right showing `2026-W31 ▾`, opening a dropdown grouped by year, newest
-first, from the existing `get_all_scored_weeks()`. Current week marked; reconstructed
-weeks dimmed. Links to existing `/week/{week}` pages — no routing changes.
+Button top-right showing `2026-Q2 ▾`, opening a dropdown of past quarters, newest
+first, from the existing `get_all_scored_weeks()`. Current quarter marked.
 
 Built with `<details>`/`<summary>` and CSS so it works without JavaScript, consistent
 with the teletext aesthetic.
@@ -93,12 +108,12 @@ Lamar down 16 — news mentions halved.
 Same register, every clause backed by a stored number. Shorter shape: number one,
 three climbers, three fallers, new entries. Controversy Corner dropped.
 
-**Backfilled weeks get rankings but no individual posts.** Eighteen structurally
-identical posts published simultaneously is the bulk-templated pattern Google is
-already declining to index elsewhere in the estate (see `../../../audit_2026-07-31.md`),
-and fameindex has a foothold worth protecting — 10 indexed pages, homepage at
-position 12.9. Instead: one hand-shaped catch-up post covering March→July, then
-genuine weekly posts from W31.
+**The catch-up post is a straight Q1→Q2 delta** — who got famouser since, no
+justification and no explaining the gap. Bulk-generating a post per backfilled period
+is avoided anyway: structurally identical posts published simultaneously is the
+pattern Google is already declining to index elsewhere in the estate (see
+`../../../audit_2026-07-31.md`), and fameindex has a foothold worth protecting — 10
+indexed pages, homepage at position 12.9.
 
 ### 5. `scripts/weekly_update.py`
 
@@ -130,4 +145,5 @@ Run manually: `python scripts/weekly_update.py`
 - Restoring Reddit/YouTube history (not obtainable)
 - Adding new signal sources
 - Redesigning the ranking algorithm beyond the re-weighting above
-- Automated scheduling — the author runs the script manually on Fridays
+- Automated scheduling — the author runs the script manually when a quarter closes
+- 2026-Q3, which is still accruing; it publishes after 30 September
