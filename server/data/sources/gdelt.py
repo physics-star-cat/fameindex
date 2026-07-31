@@ -23,6 +23,37 @@ GDELT_DOC_API = "https://api.gdeltproject.org/api/v2/doc/doc"
 REQUEST_DELAY = 1.5  # Be conservative — rate limits undocumented
 
 
+def _get_with_retry(params: dict, attempts: int = 4):
+    """
+    GET with exponential backoff on 429 and 5xx.
+
+    GDELT rate-limits without documenting the limit, and a backfill issues one
+    request per person per period. Backing off and retrying keeps the run intact
+    where a single attempt would drop signals for whoever hit the limit.
+    Raises if every attempt fails, so the caller records an error rather than a
+    fabricated zero.
+    """
+    delay = REQUEST_DELAY
+    last_error = None
+    for attempt in range(attempts):
+        time.sleep(delay)
+        try:
+            resp = requests.get(GDELT_DOC_API, params=params, timeout=30)
+            if resp.status_code == 429 or resp.status_code >= 500:
+                last_error = requests.exceptions.HTTPError(
+                    f"{resp.status_code} from GDELT", response=resp)
+                delay = min(delay * 3, 60)
+                logger.warning("GDELT %s, backing off %.1fs (attempt %d/%d)",
+                               resp.status_code, delay, attempt + 1, attempts)
+                continue
+            resp.raise_for_status()
+            return resp
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            delay = min(delay * 3, 60)
+    raise last_error
+
+
 def fetch_news_count(person_name: str, start_date: str, end_date: str) -> int:
     """
     Count news articles mentioning a person in a date range.
@@ -35,7 +66,19 @@ def fetch_news_count(person_name: str, start_date: str, end_date: str) -> int:
         end_date: End date (YYYYMMDD format).
 
     Returns:
-        Total number of articles found. Returns 0 on error.
+        Total number of articles found.
+
+    Raises:
+        requests.exceptions.RequestException: if the API could not be reached or
+            returned an error status, after retries.
+
+    This used to return 0 on any failure, which conflated "nobody wrote about
+    this person" with "we could not ask". GDELT rate-limits aggressively — a
+    backfill of 121 people throttles constantly — so that silently zeroed the
+    news dimension for whoever happened to be unlucky, and a false zero is far
+    worse than a missing signal: the pipeline stores it as fact, and rankings
+    move because of it. The scoring engine re-normalises over whichever signals
+    are present, so a raised error costs accuracy far less than a fabricated 0.
     """
     params = {
         "query": f'"{person_name}"',
@@ -46,8 +89,7 @@ def fetch_news_count(person_name: str, start_date: str, end_date: str) -> int:
     }
 
     try:
-        time.sleep(REQUEST_DELAY)
-        resp = requests.get(GDELT_DOC_API, params=params, timeout=30)
+        resp = _get_with_retry(params)
         resp.raise_for_status()
         data = resp.json()
 
@@ -63,9 +105,10 @@ def fetch_news_count(person_name: str, start_date: str, end_date: str) -> int:
 
         return total
 
-    except (requests.exceptions.RequestException, ValueError) as e:
-        logger.error("GDELT API error for %s: %s", person_name, e)
-        return 0
+    except ValueError as e:
+        # Malformed JSON body — the request succeeded but the payload is junk.
+        logger.error("GDELT returned unparseable JSON for %s: %s", person_name, e)
+        raise requests.exceptions.RequestException(f"unparseable GDELT response: {e}") from e
 
 
 def weekly_news_count(person_name: str, week: str) -> int:
