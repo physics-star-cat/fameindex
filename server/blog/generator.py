@@ -220,7 +220,7 @@ def generate_weekly_post(week: str) -> dict:
         commentary = _commentary(templates, cat, name=top.person.name, score=top.fame_score)
         if not commentary:
             commentary = _GENERIC_NEW_TOP.format(name=top.person.name, score=top.fame_score)
-    sections.append(f"<h3>This Week's Number One</h3>\n<p>{commentary}</p>")
+    sections.append(f"<h3>Number One</h3>\n<p>{commentary}</p>")
 
     # --- Biggest Climbers ---
     if movers["climbers"]:

@@ -9,7 +9,7 @@ Note: The primary momentum calculation now lives in engine.py.
 This module provides the "biggest movers" analysis used by the blog generator.
 """
 
-from server.db.queries import get_all_persons, get_person_history
+from server.db.queries import get_scores_for_week, get_all_persons, get_person_history
 
 
 def biggest_movers(week: str, n: int = 10) -> dict:
@@ -24,22 +24,19 @@ def biggest_movers(week: str, n: int = 10) -> dict:
         Dict with keys "climbers" and "fallers", each containing a list
         of (person_id, name, momentum) tuples sorted by magnitude.
     """
-    persons = get_all_persons(active_only=True)
-    movers = []
-
-    for person in persons:
-        history = get_person_history(person.id, num_weeks=2)
-        if len(history) < 2:
-            continue
-
-        current = history[0]
-        previous = history[1]
-
-        if current.week != week:
-            continue
-
-        momentum = current.fame_score - previous.fame_score
-        movers.append((person.id, person.name, momentum))
+    # Read the stored momentum for this period directly.
+    #
+    # This previously walked get_person_history(num_weeks=2) and required
+    # history[0].week == week. That ordering is week DESCENDING AS A STRING, so
+    # with both weeks and quarters in the table "2026-W13" sorts above
+    # "2026-Q2" ('W' follows 'Q'). history[0] was therefore never the requested
+    # period, every person was skipped, and the climbers and fallers sections
+    # vanished from every post without any error being raised.
+    movers = [
+        (sc.person_id, sc.person.name, sc.momentum)
+        for sc in get_scores_for_week(week)
+        if sc.momentum
+    ]
 
     # Sort by momentum
     movers.sort(key=lambda x: x[2], reverse=True)

@@ -32,6 +32,9 @@ from server.db.queries import upsert_signal, get_historical_signals
 
 logger = logging.getLogger(__name__)
 
+# See _fetch_all_dimensions for why this is off.
+ENABLE_GOOGLE_TRENDS = False
+
 
 def run_pipeline(week: str, persons: list[dict] | None = None,
                  historical_only: bool = False) -> dict:
@@ -139,8 +142,16 @@ def _fetch_all_dimensions(person: dict, week: str, errors: list,
     _try_fetch(signals, errors, name, "wikipedia_pageviews", pid, week,
                lambda: float(wiki_pageviews(wiki, week)))
 
-    _try_fetch(signals, errors, name, "google_trends", pid, week,
-               lambda: float(fetch_interest_for_week(name, week)))
+    # Google Trends is disabled. pytrends scrapes an endpoint Google does not
+    # publish and actively blocks: the 2026-Q2 backfill came back 121/121 zero,
+    # which is a hard block rather than throttling, and there is no polite-usage
+    # fix. Wikipedia pageviews measure substantially the same thing (search
+    # attention) from an API that is reliable when used correctly, so the search
+    # dimension rests on that alone until a supported Trends source exists.
+    # Re-enable by restoring this call; nothing else needs changing.
+    if ENABLE_GOOGLE_TRENDS:
+        _try_fetch(signals, errors, name, "google_trends", pid, week,
+                   lambda: float(fetch_interest_for_week(name, week)))
 
     # --- NEWS dimension ---
     _try_fetch(signals, errors, name, "gdelt_count", pid, week,

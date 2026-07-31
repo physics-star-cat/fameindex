@@ -13,6 +13,7 @@ The weights are proprietary IP and never leave this module.
 import logging
 
 from server.config import DIMENSION_WEIGHTS
+from server.data.week_utils import previous_period
 from server.db.queries import get_signals_for_person_week, get_all_persons, get_person_history
 from server.scoring.sentiment import analyse_sentiment
 from server.scoring.controversy import calculate_controversy
@@ -145,14 +146,26 @@ def calculate_momentum(person_id: int, current_week: str) -> float:
     Returns:
         Change in fame score from previous week. Positive = rising.
     """
-    history = get_person_history(person_id, num_weeks=2)
-    if len(history) < 2:
+    # Compare against the explicitly preceding period rather than relying on
+    # get_person_history, which orders by week DESCENDING AS A STRING. With both
+    # weeks and quarters stored, "2026-W13" sorts above "2026-Q2" because 'W'
+    # follows 'Q' — so the "most recent" two rows were the wrong pair entirely
+    # and every momentum value came out 0, emptying the climbers and fallers
+    # from the post.
+    previous_week_id = previous_period(current_week)
+    current = _score_for(person_id, current_week)
+    previous = _score_for(person_id, previous_week_id)
+    if current is None or previous is None:
         return 0.0
-
-    # history is most-recent-first
-    current = history[0].fame_score
-    previous = history[1].fame_score
     return current - previous
+
+
+def _score_for(person_id: int, period: str) -> float | None:
+    """Stored fame score for one person in one period, or None if absent."""
+    for row in get_person_history(person_id, num_weeks=50):
+        if row.week == period:
+            return row.fame_score
+    return None
 
 
 def score_all(week: str) -> list[dict]:
@@ -168,10 +181,22 @@ def score_all(week: str) -> list[dict]:
     persons = get_all_persons(active_only=True)
     results = []
 
+    # Momentum is computed here, against the stored score for the preceding
+    # period, because the current period's score does not exist in the database
+    # until store_scores runs. score_all previously never populated momentum at
+    # all, so it defaulted to 0.0 for everyone — which silently emptied the
+    # climbers and fallers out of every blog post.
+    prev_period = previous_period(week)
+
     for person in persons:
         score_data = calculate_fame_score(person.id, week)
         score_data["person_id"] = person.id
         score_data["week"] = week
+
+        previous = _score_for(person.id, prev_period)
+        score_data["momentum"] = (
+            score_data["fame_score"] - previous if previous is not None else 0.0
+        )
         results.append(score_data)
 
     # Sort and assign ranks

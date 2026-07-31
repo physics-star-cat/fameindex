@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 MEDIAWIKI_API = "https://en.wikipedia.org/w/api.php"
 HEADERS = {"User-Agent": WIKIPEDIA_USER_AGENT}
-REQUEST_DELAY = 0.2
+REQUEST_DELAY = 1.0  # was 0.2; see wikipedia.py
 
 
 def _count_revisions(article_title: str, start: str, end: str) -> int:
@@ -66,7 +66,7 @@ def _count_revisions(article_title: str, start: str, end: str) -> int:
 
     except (requests.exceptions.RequestException, ValueError) as e:
         logger.error("Wikipedia revisions API error for %s: %s", article_title, e)
-        return 0
+        raise
 
 
 def fetch_mention_velocity(person_name: str, week: str) -> dict:

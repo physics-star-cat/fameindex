@@ -82,8 +82,10 @@ def fetch_awards_count(wikipedia_title: str) -> dict:
         }
 
     except (requests.exceptions.RequestException, ValueError) as e:
+        # Do not return an empty record here: "no awards" and "could not ask"
+        # are different facts, and only one of them is data.
         logger.error("Wikidata SPARQL error for %s: %s", wikipedia_title, e)
-        return empty
+        raise
 
 
 def institutional_score(wikipedia_title: str) -> float:

@@ -18,7 +18,14 @@ DATABASE_URL = os.getenv("DATABASE_URL", _DEFAULT_DB)
 
 # API keys (sourced from environment)
 GOOGLE_TRENDS_API_KEY = os.getenv("GOOGLE_TRENDS_API_KEY", "")
-WIKIPEDIA_USER_AGENT = os.getenv("WIKIPEDIA_USER_AGENT", "FameIndex/1.0")
+# Wikimedia's User-Agent policy requires a contact URL or address. A bare
+# "FameIndex/1.0" is treated as a non-compliant bot and throttled hard — which
+# is what produced 56-62% failed pageview fetches during the 2026-Q1/Q2 backfill.
+# https://meta.wikimedia.org/wiki/User-Agent_policy
+WIKIPEDIA_USER_AGENT = os.getenv(
+    "WIKIPEDIA_USER_AGENT",
+    "FameIndex/1.0 (https://fameindex.net; contact via https://fameindex.net/about)",
+)
 
 # Dimension weights (private IP — never exposed to client)
 # These determine how the five public dimension scores combine

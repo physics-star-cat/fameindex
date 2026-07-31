@@ -23,7 +23,7 @@ BASE_URL = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article"
 HEADERS = {"User-Agent": WIKIPEDIA_USER_AGENT}
 
 # Be polite — pause between requests
-REQUEST_DELAY = 0.1  # seconds
+REQUEST_DELAY = 1.0  # seconds — 0.1 meant 10 req/s sustained, which got us throttled
 
 
 def fetch_pageviews(person_name: str, start_date: str, end_date: str) -> list[dict]:
@@ -60,15 +60,18 @@ def fetch_pageviews(person_name: str, start_date: str, end_date: str) -> list[di
         ]
 
     except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
+        # 404 = the article does not exist. That is a real answer, so [] is
+        # correct. Anything else means we could not ask, and must raise —
+        # see the module note on fabricated zeros.
+        if e.response is not None and e.response.status_code == 404:
             logger.warning("No Wikipedia article found for: %s", person_name)
-        else:
-            logger.error("Wikipedia API HTTP error for %s: %s", person_name, e)
-        return []
+            return []
+        logger.error("Wikipedia API HTTP error for %s: %s", person_name, e)
+        raise
 
     except (requests.exceptions.RequestException, ValueError) as e:
         logger.error("Wikipedia API error for %s: %s", person_name, e)
-        return []
+        raise
 
 
 def weekly_aggregate(person_name: str, week: str) -> int:

@@ -44,13 +44,15 @@ class TestFetchAllDimensions:
         errors = []
         signals = _fetch_all_dimensions(person, "2026-W04", errors)
 
-        # 8 sources (no spotify/tmdb without IDs)
-        assert len(signals) == 8
+        # 7 sources (no spotify/tmdb without IDs; google_trends disabled)
+        assert len(signals) == 7
         assert errors == []
 
         sources = {s["source"] for s in signals}
         assert "wikipedia_pageviews" in sources
-        assert "google_trends" in sources
+        # google_trends is deliberately absent — pytrends is blocked by Google
+        # and returned 121/121 zeros. See pipeline.ENABLE_GOOGLE_TRENDS.
+        assert "google_trends" not in sources
         assert "gdelt_count" in sources
         assert "reddit_score" in sources
         assert "wikidata_recognition" in sources
@@ -74,7 +76,7 @@ class TestFetchAllDimensions:
         signals = _fetch_all_dimensions(person, "2026-W04", errors)
 
         # 10 sources (all including spotify + tmdb)
-        assert len(signals) == 10
+        assert len(signals) == 9  # google_trends disabled
         sources = {s["source"] for s in signals}
         assert "spotify_popularity" in sources
         assert "tmdb_popularity" in sources
@@ -92,7 +94,7 @@ class TestFetchAllDimensions:
         errors = []
         signals = _fetch_all_dimensions(person, "2026-W04", errors)
 
-        assert len(signals) == 7  # 8 - 1 failure
+        assert len(signals) == 6  # 7 - 1 failure
         assert len(errors) == 1
         assert "wikipedia_pageviews" in errors[0]
 
@@ -118,6 +120,6 @@ class TestRunPipeline:
         result = run_pipeline("2026-W04", persons=persons)
 
         assert result["persons_processed"] == 2
-        assert result["signals_collected"] == 16  # 8 sources x 2 persons
+        assert result["signals_collected"] == 14  # 2 persons x 7 sources
         assert result["errors"] == []
-        assert mock_upsert.call_count == 16
+        assert mock_upsert.call_count == 14

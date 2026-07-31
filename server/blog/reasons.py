@@ -50,6 +50,17 @@ _DECLINES = [
 # Below this the movement is noise and we say nothing rather than inventing one.
 _MIN_INTERESTING_RATIO = 1.15
 
+# Signals whose stored value is ALREADY a rate of change, and so cannot be
+# compared period-over-period as if it were a level.
+#
+# wiki_edit_velocity is edits-this-period / edits-last-period. Taking a ratio of
+# that is a second derivative — "the rate of change of edits changed" — which is
+# both meaningless to a reader and phrased misleadingly as "edits went up
+# fivefold". It is also far more volatile than any absolute count, so it won
+# the "biggest swing" contest almost every time and gave six movers in a row the
+# identical reason. Excluding it is a correctness fix as much as a variety one.
+_RATE_SIGNALS = {"wiki_edit_velocity"}
+
 
 def _signals_by_source(person_id: int, period: str) -> dict[str, float]:
     """Raw signal values keyed by source, for one person in one period."""
@@ -76,6 +87,8 @@ def biggest_mover(person_id: int, period: str, previous_period: str) -> dict | N
 
     best = None
     for source, current in now.items():
+        if source in _RATE_SIGNALS:
+            continue
         prior = before.get(source)
         if prior is None or prior <= 0 or current <= 0:
             continue
