@@ -15,7 +15,7 @@ from urllib.parse import quote
 
 import requests
 
-from server.data.week_utils import week_to_dates
+from server.data.week_utils import period_to_dates
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def weekly_news_count(person_name: str, week: str) -> int:
     Returns:
         Total article count for that week.
     """
-    monday, sunday = week_to_dates(week)
+    monday, sunday = period_to_dates(week)
     start = monday.strftime("%Y%m%d")
     end = sunday.strftime("%Y%m%d")
     return fetch_news_count(person_name, start, end)

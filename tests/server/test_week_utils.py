@@ -61,3 +61,65 @@ class TestFormatYyyymmdd:
     def test_zero_padding(self):
         d = date(2026, 3, 5)
         assert format_yyyymmdd(d) == "20260305"
+
+
+class TestPeriodToDates:
+    """
+    Periods generalise ISO weeks to quarters.
+
+    The Fame Index publishes quarterly — fame moves too slowly for a weekly
+    ranking to say much. Every data source already resolves a period to a
+    (start, end) range before querying, so teaching this one function about
+    quarters lets the whole pipeline fetch a quarter in a single call per
+    source rather than thirteen.
+    """
+
+    def test_quarter_boundaries(self):
+        from server.data.week_utils import period_to_dates
+        from datetime import date
+        assert period_to_dates("2026-Q1") == (date(2026, 1, 1), date(2026, 3, 31))
+        assert period_to_dates("2026-Q2") == (date(2026, 4, 1), date(2026, 6, 30))
+        assert period_to_dates("2026-Q3") == (date(2026, 7, 1), date(2026, 9, 30))
+        assert period_to_dates("2026-Q4") == (date(2026, 10, 1), date(2026, 12, 31))
+
+    def test_leap_year_q1(self):
+        from server.data.week_utils import period_to_dates
+        from datetime import date
+        # 2024 is a leap year; Q1 still ends 31 March
+        assert period_to_dates("2024-Q1") == (date(2024, 1, 1), date(2024, 3, 31))
+
+    def test_still_accepts_iso_weeks(self):
+        from server.data.week_utils import period_to_dates, week_to_dates
+        assert period_to_dates("2026-W04") == week_to_dates("2026-W04")
+
+    def test_rejects_nonsense(self):
+        import pytest
+        from server.data.week_utils import period_to_dates
+        for bad in ["2026-Q5", "2026-Q0", "2026", "Q2-2026", "2026-X1"]:
+            with pytest.raises(ValueError):
+                period_to_dates(bad)
+
+
+class TestQuarterHelpers:
+    def test_date_to_quarter(self):
+        from server.data.week_utils import date_to_quarter
+        from datetime import date
+        assert date_to_quarter(date(2026, 1, 1)) == "2026-Q1"
+        assert date_to_quarter(date(2026, 3, 31)) == "2026-Q1"
+        assert date_to_quarter(date(2026, 7, 31)) == "2026-Q3"
+        assert date_to_quarter(date(2026, 12, 31)) == "2026-Q4"
+
+    def test_previous_quarter(self):
+        from server.data.week_utils import previous_quarter
+        assert previous_quarter("2026-Q2") == "2026-Q1"
+        assert previous_quarter("2026-Q1") == "2025-Q4"
+
+    def test_last_complete_quarter_excludes_current(self):
+        from server.data.week_utils import last_complete_quarter
+        from datetime import date
+        # Mid-Q3: the latest quarter that has fully elapsed is Q2
+        assert last_complete_quarter(date(2026, 7, 31)) == "2026-Q2"
+        # First day of Q1: previous year's Q4
+        assert last_complete_quarter(date(2026, 1, 1)) == "2025-Q4"
+        # Last day of Q2: Q2 is not yet over, so Q1
+        assert last_complete_quarter(date(2026, 6, 30)) == "2026-Q1"

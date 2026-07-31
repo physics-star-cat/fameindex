@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 import feedparser
 
-from server.data.week_utils import week_to_dates
+from server.data.week_utils import period_to_dates
 
 logger = logging.getLogger(__name__)
 

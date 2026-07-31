@@ -15,7 +15,7 @@ import time
 import requests
 
 from server.config import WIKIPEDIA_USER_AGENT
-from server.data.week_utils import week_to_dates, format_yyyymmdd
+from server.data.week_utils import period_to_dates, format_yyyymmdd
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def weekly_aggregate(person_name: str, week: str) -> int:
     Returns:
         Total pageview count for that week. Returns 0 on error.
     """
-    monday, sunday = week_to_dates(week)
+    monday, sunday = period_to_dates(week)
     start = format_yyyymmdd(monday)
     end = format_yyyymmdd(sunday)
 

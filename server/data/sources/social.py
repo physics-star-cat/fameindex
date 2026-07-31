@@ -19,7 +19,7 @@ import time
 import requests
 
 from server.config import WIKIPEDIA_USER_AGENT
-from server.data.week_utils import week_to_dates, previous_week
+from server.data.week_utils import period_to_dates, previous_period
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ def fetch_mention_velocity(person_name: str, week: str) -> dict:
     article = person_name.replace(" ", "_")
 
     # Current week
-    monday, sunday = week_to_dates(week)
+    monday, sunday = period_to_dates(week)
     current_count = _count_revisions(
         article,
         monday.isoformat(),
@@ -98,8 +98,8 @@ def fetch_mention_velocity(person_name: str, week: str) -> dict:
     )
 
     # Previous week
-    prev = previous_week(week)
-    prev_monday, prev_sunday = week_to_dates(prev)
+    prev = previous_period(week)
+    prev_monday, prev_sunday = period_to_dates(prev)
     previous_count = _count_revisions(
         article,
         prev_monday.isoformat(),

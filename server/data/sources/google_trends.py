@@ -15,7 +15,7 @@ import time
 
 from pytrends.request import TrendReq
 
-from server.data.week_utils import week_to_dates
+from server.data.week_utils import period_to_dates
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def fetch_interest_for_week(person_name: str, week: str) -> float:
     Returns:
         Average interest value (0-100) for that week. Returns 0.0 on error.
     """
-    monday, sunday = week_to_dates(week)
+    monday, sunday = period_to_dates(week)
     timeframe = f"{monday.isoformat()} {sunday.isoformat()}"
 
     result = fetch_interest(person_name, timeframe=timeframe)
