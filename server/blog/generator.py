@@ -14,9 +14,10 @@ Posts are structured around:
 
 import random
 
+from server.blog.reasons import describe_move
 from server.db.queries import get_scores_for_week, store_blog_post
 from server.scoring.momentum import biggest_movers
-from server.data.week_utils import previous_week
+from server.data.week_utils import previous_period
 
 
 # Category-aware commentary templates
@@ -193,13 +194,13 @@ def generate_weekly_post(week: str) -> dict:
     scores = get_scores_for_week(week)
     if not scores:
         return {
-            "title": f"Fame Index — Week {week}",
+            "title": f"Fame Index — {week}",
             "content": "<p>No data available for this week.</p>",
             "summary": f"Fame Index rankings for week {week}.",
             "movers": {"climbers": [], "fallers": []},
         }
 
-    prev_week = previous_week(week)
+    prev_week = previous_period(week)
     prev_scores = get_scores_for_week(prev_week)
     prev_top = prev_scores[0].person_id if prev_scores else None
 
@@ -224,12 +225,17 @@ def generate_weekly_post(week: str) -> dict:
     # --- Biggest Climbers ---
     if movers["climbers"]:
         climber_lines = []
-        for pid, name, momentum in movers["climbers"][:5]:
-            cat = _get_category_for_person(pid, scores)
+        for pid, name, momentum in movers["climbers"][:3]:
             delta = abs(momentum)
-            line = _commentary(_CLIMBER_TEMPLATES, cat, name=name, delta=delta)
-            if not line:
-                line = _GENERIC_CLIMBER.format(name=name, delta=delta)
+            # The reason comes from whichever stored signal actually moved most.
+            # If nothing moved enough to name, we say nothing rather than
+            # reaching for a stock line — that is how the old generator ended up
+            # attributing the same phrase to two different people in one post.
+            reason = describe_move(pid, week, prev_week, rising=True)
+            line = f"{name} up {delta:.0f}"
+            if reason:
+                line += f" — {reason}"
+            line += "."
             climber_lines.append(f"<li>{line}</li>")
         climbers_html = "<ul>\n" + "\n".join(climber_lines) + "\n</ul>"
         sections.append(f"<h3>Biggest Climbers</h3>\n{climbers_html}")
@@ -237,12 +243,13 @@ def generate_weekly_post(week: str) -> dict:
     # --- Fastest Fallers ---
     if movers["fallers"]:
         faller_lines = []
-        for pid, name, momentum in movers["fallers"][:5]:
-            cat = _get_category_for_person(pid, scores)
+        for pid, name, momentum in movers["fallers"][:3]:
             delta = abs(momentum)
-            line = _commentary(_FALLER_TEMPLATES, cat, name=name, delta=delta)
-            if not line:
-                line = _GENERIC_FALLER.format(name=name, delta=delta)
+            reason = describe_move(pid, week, prev_week, rising=False)
+            line = f"{name} down {delta:.0f}"
+            if reason:
+                line += f" — {reason}"
+            line += "."
             faller_lines.append(f"<li>{line}</li>")
         fallers_html = "<ul>\n" + "\n".join(faller_lines) + "\n</ul>"
         sections.append(f"<h3>Fastest Fallers</h3>\n{fallers_html}")
@@ -265,8 +272,8 @@ def generate_weekly_post(week: str) -> dict:
 
     # Build headline
     headline = _make_headline(top, movers, scores)
-    title = f"Fame Index — Week {week}: {headline}"
-    summary = f"{top.person.name} leads the Fame Index for week {week}."
+    title = f"Fame Index — {week}: {headline}"
+    summary = f"{top.person.name} leads the Fame Index for {week}."
 
     # Store in database
     store_blog_post(week, title, content)
