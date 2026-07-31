@@ -33,7 +33,8 @@ from server.db.queries import upsert_signal, get_historical_signals
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline(week: str, persons: list[dict] | None = None) -> dict:
+def run_pipeline(week: str, persons: list[dict] | None = None,
+                 historical_only: bool = False) -> dict:
     """
     Run the full data collection pipeline for a week.
 
@@ -45,6 +46,8 @@ def run_pipeline(week: str, persons: list[dict] | None = None) -> dict:
         persons: Optional list of person dicts. If None, loads from database.
             Each dict needs: "id", "name", "wikipedia_title".
             Optional: "spotify_id", "tmdb_id".
+        historical_only: Restrict to sources that can genuinely report on a past
+            week. Required when backfilling — see _fetch_all_dimensions.
 
     Returns:
         Dict summarising the pipeline run.
@@ -58,7 +61,7 @@ def run_pipeline(week: str, persons: list[dict] | None = None) -> dict:
     signals_collected = 0
 
     for person in persons:
-        person_signals = _fetch_all_dimensions(person, week, errors)
+        person_signals = _fetch_all_dimensions(person, week, errors, historical_only)
         signals_collected += len(person_signals)
 
         # Attach historical data for adaptive normalisation
@@ -108,8 +111,25 @@ def _load_persons_from_db() -> list[dict]:
         ]
 
 
-def _fetch_all_dimensions(person: dict, week: str, errors: list) -> list[dict]:
-    """Fetch data from all sources across all dimensions for one person."""
+def _fetch_all_dimensions(person: dict, week: str, errors: list,
+                          historical_only: bool = False) -> list[dict]:
+    """
+    Fetch data from all sources across all dimensions for one person.
+
+    Args:
+        historical_only: Skip sources that cannot report on a past week.
+
+            Every source function takes a `week`, but only some honour it.
+            Wikipedia pageviews, GDELT, Google Trends and wiki edit velocity all
+            resolve the week to a date range and query historical data. Reddit
+            (`time_filter="week"` always means "past week from now"), YouTube
+            (no per-week historical view counts exist), Google News, Spotify and
+            TMDB all return *current* values regardless of the week passed.
+
+            Backfilling with those included would stamp today's values across
+            every reconstructed week — a flat line in the data and rankings
+            distorted by it. Set this when rebuilding past weeks.
+    """
     signals = []
     pid = person["id"]
     name = person["name"]
@@ -126,27 +146,30 @@ def _fetch_all_dimensions(person: dict, week: str, errors: list) -> list[dict]:
     _try_fetch(signals, errors, name, "gdelt_count", pid, week,
                lambda: float(weekly_news_count(name, week)))
 
-    _try_fetch(signals, errors, name, "google_news_count", pid, week,
-               lambda: float(weekly_article_count(name, week)))
+    if not historical_only:
+        _try_fetch(signals, errors, name, "google_news_count", pid, week,
+                   lambda: float(weekly_article_count(name, week)))
 
     # --- SOCIAL dimension ---
-    _try_fetch(signals, errors, name, "reddit_score", pid, week,
-               lambda: float(reddit_score(name, week)))
+    if not historical_only:
+        _try_fetch(signals, errors, name, "reddit_score", pid, week,
+                   lambda: float(reddit_score(name, week)))
 
     _try_fetch(signals, errors, name, "wiki_edit_velocity", pid, week,
                lambda: float(fetch_mention_velocity(wiki, week)["velocity"]))
 
-    _try_fetch(signals, errors, name, "youtube_score", pid, week,
-               lambda: float(weekly_youtube_score(name, week)))
+    if not historical_only:
+        _try_fetch(signals, errors, name, "youtube_score", pid, week,
+                   lambda: float(weekly_youtube_score(name, week)))
 
     # --- CULTURAL dimension (only if identifiers available) ---
     spotify_id = person.get("spotify_id")
-    if spotify_id:
+    if spotify_id and not historical_only:
         _try_fetch(signals, errors, name, "spotify_popularity", pid, week,
                    lambda: float(fetch_artist_popularity(spotify_id)))
 
     tmdb_id = person.get("tmdb_id")
-    if tmdb_id:
+    if tmdb_id and not historical_only:
         _try_fetch(signals, errors, name, "tmdb_popularity", pid, week,
                    lambda: float(tmdb_popularity(tmdb_id)))
 
