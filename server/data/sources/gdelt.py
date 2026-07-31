@@ -25,15 +25,22 @@ GDELT_DOC_API = "https://api.gdeltproject.org/api/v2/doc/doc"
 # spent most of its time in exponential backoff. Pacing up front is far faster
 # overall than retrying after the fact.
 REQUEST_DELAY = 5.0
+# Fewer attempts: with a blocked source each extra attempt is pure sleep.
+MAX_ATTEMPTS = 2
 
 
 # Circuit breaker. When GDELT blocks an IP it stays blocked for a while, and a
 # 121-person backfill would then spend ~2 minutes per person in backoff before
-# failing anyway — four hours of sleeping to collect nothing. After this many
-# consecutive failures we stop asking for the rest of the run and let the
-# scoring engine re-normalise over the signals we did get.
-_CONSECUTIVE_FAILURES = 0
-_CIRCUIT_OPEN_AFTER = 5
+# failing anyway — many hours of sleeping to collect almost nothing.
+#
+# Counts CUMULATIVE failures for the run, not a consecutive streak. A streak
+# counter is useless against an intermittently-blocked source: one lucky success
+# resets it, so the circuit never opens while every other request still pays the
+# full backoff. Observed in practice — two people processed in fifteen minutes.
+# A source that has failed this many times in one run is not healthy, whatever
+# it managed in between.
+_RUN_FAILURES = 0
+_CIRCUIT_OPEN_AFTER = 8
 
 
 class GdeltUnavailable(requests.exceptions.RequestException):
@@ -42,11 +49,11 @@ class GdeltUnavailable(requests.exceptions.RequestException):
 
 def reset_circuit() -> None:
     """Close the circuit again — call between runs or in tests."""
-    global _CONSECUTIVE_FAILURES
-    _CONSECUTIVE_FAILURES = 0
+    global _RUN_FAILURES
+    _RUN_FAILURES = 0
 
 
-def _get_with_retry(params: dict, attempts: int = 4):
+def _get_with_retry(params: dict, attempts: int = MAX_ATTEMPTS):
     """
     GET with exponential backoff on 429 and 5xx.
 
@@ -56,10 +63,10 @@ def _get_with_retry(params: dict, attempts: int = 4):
     Raises if every attempt fails, so the caller records an error rather than a
     fabricated zero.
     """
-    global _CONSECUTIVE_FAILURES
-    if _CONSECUTIVE_FAILURES >= _CIRCUIT_OPEN_AFTER:
+    global _RUN_FAILURES
+    if _RUN_FAILURES >= _CIRCUIT_OPEN_AFTER:
         raise GdeltUnavailable(
-            f"GDELT circuit open after {_CONSECUTIVE_FAILURES} consecutive failures")
+            f"GDELT circuit open after {_RUN_FAILURES} failures this run")
 
     delay = REQUEST_DELAY
     last_error = None
@@ -75,15 +82,14 @@ def _get_with_retry(params: dict, attempts: int = 4):
                                resp.status_code, delay, attempt + 1, attempts)
                 continue
             resp.raise_for_status()
-            _CONSECUTIVE_FAILURES = 0
             return resp
         except requests.exceptions.RequestException as e:
             last_error = e
             delay = min(delay * 3, 60)
-    _CONSECUTIVE_FAILURES += 1
-    if _CONSECUTIVE_FAILURES == _CIRCUIT_OPEN_AFTER:
-        logger.error("GDELT unreachable %d times in a row — skipping it for the "
-                     "rest of this run", _CONSECUTIVE_FAILURES)
+    _RUN_FAILURES += 1
+    if _RUN_FAILURES == _CIRCUIT_OPEN_AFTER:
+        logger.error("GDELT has failed %d times this run — skipping it for the "
+                     "remainder", _RUN_FAILURES)
     raise last_error
 
 
