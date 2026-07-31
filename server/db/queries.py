@@ -102,8 +102,24 @@ def store_signals(signals: list[dict]) -> None:
 
 
 def store_scores(scores: list[dict]) -> None:
-    """Store a batch of scores in the database."""
+    """
+    Store a batch of scores, replacing any existing scores for those periods.
+
+    Previously this only ever appended, so rescoring a period silently doubled
+    its rows — every person appeared twice in the rankings. That would have
+    happened on every re-run of the update script, and on any backfill retry.
+
+    Recomputing a period is the normal case (a source recovers, weights change),
+    so the period's existing scores are cleared first.
+    """
+    if not scores:
+        return
+
     with get_session() as session:
+        periods = {sc["week"] for sc in scores}
+        for period in periods:
+            session.query(Score).filter(Score.week == period).delete(
+                synchronize_session=False)
         for sc in scores:
             obj = Score(
                 person_id=sc["person_id"],

@@ -59,6 +59,14 @@ PAGE_CATEGORIES = {
     "business": 114,
     "creator": 115,
 }
+CATEGORY_PLURALS = {
+    "musician": "musicians",
+    "actor": "actors",
+    "athlete": "athletes",
+    "politician": "politicians",
+    "business": "business leaders",
+    "creator": "creators",
+}
 PAGE_REGIONS = {
     "global": 120,
     "us": 121,
@@ -71,12 +79,36 @@ PAGE_WEEK_BASE = 300
 PAGE_BLOG_BASE = 400
 
 
+# Context injected into every template so the quarter picker renders on all
+# pages without threading it through each render() call individually.
+_PERIOD_CONTEXT: dict = {"all_periods": [], "current_period": None}
+
+
+def set_period_context(current: str, all_periods: list[str]) -> None:
+    """Set the picker context used by every page in this build."""
+    _PERIOD_CONTEXT["current_period"] = current
+    _PERIOD_CONTEXT["all_periods"] = all_periods
+
+
+def period_path(period: str) -> str:
+    """
+    Output path for a period's ranking page.
+
+    Quarters live at /quarter/2026-Q2/; the legacy weekly pages stay at
+    /week/2026-W13/ so existing indexed URLs keep resolving.
+    """
+    folder = "quarter" if "-Q" in period else "week"
+    return f"{folder}/{period}/index.html"
+
+
 def _get_env() -> Environment:
     """Create a Jinja2 environment with the templates directory."""
-    return Environment(
+    env = Environment(
         loader=FileSystemLoader(TEMPLATE_DIR),
         autoescape=True,
     )
+    env.globals.update(_PERIOD_CONTEXT)
+    return env
 
 
 def _write_page(path: str, html: str) -> None:
@@ -130,6 +162,12 @@ def build_site(week: str) -> None:
     Args:
         week: ISO week string for the current build.
     """
+    # Picker context must be set BEFORE any page renders — every template pulls
+    # all_periods/current_period from the Jinja globals, and pages built before
+    # this point would silently omit the picker.
+    quarters = sorted([w for w in get_all_scored_weeks() if "-Q" in w], reverse=True)
+    set_period_context(week, quarters)
+
     # Clean and recreate output directory for a fresh build
     import shutil
     if os.path.exists(OUTPUT_DIR):
@@ -160,7 +198,7 @@ def build_site(week: str) -> None:
 
     # Build the week page for the current week
     week_html = build_week_page(week)
-    _write_page(f"week/{week}/index.html", week_html)
+    _write_page(period_path(week), week_html)
 
     # Build person profile pages
     persons = get_all_persons(active_only=True)
@@ -188,9 +226,9 @@ def build_site(week: str) -> None:
     # Build previous week pages (last 12 weeks)
     all_weeks = get_all_scored_weeks()
     for w in all_weeks[:12]:
-        if w != week:  # already built current week
+        if w != week:  # already built current period
             wk_html = build_week_page(w)
-            _write_page(f"week/{w}/index.html", wk_html)
+            _write_page(period_path(w), wk_html)
 
     # Generate sitemap and robots.txt
     build_sitemap(week, persons, posts, all_weeks[:12])
@@ -245,6 +283,8 @@ def build_category_page(week: str, category: str) -> str:
         ranking_schema=schema,
         page_number=page_num,
         filter_label=category.title(),
+        filter_type="category",
+        filter_label_plural=CATEGORY_PLURALS.get(category, category.title() + "s"),
     )
 
 
@@ -270,6 +310,7 @@ def build_region_page(week: str, region: str) -> str:
         ranking_schema=schema,
         page_number=page_num,
         filter_label=region.upper(),
+        filter_type="region",
     )
 
 
