@@ -361,3 +361,79 @@ body.teletext .person-profile .history td a:hover {
         align-items: flex-start;
     }
 }
+
+/* --- Quarter picker -------------------------------------------------------
+   Sits top-right in the header. Built on <details> so it needs no JavaScript
+   and degrades to an open list if CSS fails — which suits a teletext pastiche
+   better than a scripted menu would. */
+
+.period-picker {
+    position: relative;
+    margin-left: auto;
+    font-family: inherit;
+}
+
+.period-picker > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.15rem 0.6rem;
+    background: var(--tt-blue, #0000aa);
+    color: var(--tt-yellow, #ffff00);
+    border: 2px solid var(--tt-yellow, #ffff00);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.period-picker > summary::-webkit-details-marker { display: none; }
+.period-picker > summary:hover,
+.period-picker > summary:focus-visible {
+    background: var(--tt-yellow, #ffff00);
+    color: var(--tt-blue, #0000aa);
+    outline: none;
+}
+
+.period-picker[open] > summary {
+    background: var(--tt-yellow, #ffff00);
+    color: var(--tt-blue, #0000aa);
+}
+
+.period-picker ul {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 20;
+    margin: 0.2rem 0 0;
+    padding: 0.3rem 0;
+    list-style: none;
+    min-width: 100%;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--tt-black, #000);
+    border: 2px solid var(--tt-yellow, #ffff00);
+}
+
+.period-picker li { margin: 0; }
+
+.period-picker li a {
+    display: block;
+    padding: 0.25rem 0.9rem;
+    color: var(--tt-cyan, #00ffff);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.period-picker li a:hover,
+.period-picker li a:focus-visible {
+    background: var(--tt-cyan, #00ffff);
+    color: var(--tt-black, #000);
+    outline: none;
+}
+
+.period-picker li a.is-current {
+    color: var(--tt-yellow, #ffff00);
+    font-weight: bold;
+}
+
+@media (max-width: 480px) {
+    .period-picker > summary { padding: 0.15rem 0.4rem; font-size: 0.85rem; }
+}
