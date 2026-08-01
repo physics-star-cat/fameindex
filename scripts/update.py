@@ -43,8 +43,23 @@ def run_git(*args: str) -> str:
     return result.stdout.strip()
 
 
-def collect_and_score(period: str) -> dict:
-    """Fetch signals and compute scores for a period."""
+def collect_and_score(period: str, all_sources: bool = False) -> dict:
+    """
+    Fetch signals and compute scores for a period.
+
+    By default this collects the SAME sources the historical months were built
+    from — Wikipedia pageviews, wiki edit velocity, Wikidata and GDELT.
+
+    Reddit, YouTube and Google News are off by default even though they work for
+    a live month, because they cannot be fetched retrospectively. Enabling them
+    would give the current month a richer social and news dimension than every
+    month before it, so a person's score would shift for reasons that have
+    nothing to do with their fame. In an index whose whole point is showing
+    movement, comparability across months matters more than extra inputs.
+
+    Pass all_sources=True to opt in deliberately — ideally at a clean boundary,
+    with the change noted, rather than silently.
+    """
     from server.data.pipeline import run_pipeline
     from server.db import init_db
     from server.db.queries import get_all_persons, store_scores
@@ -59,7 +74,8 @@ def collect_and_score(period: str) -> dict:
     ]
     logger.info("  roster: %d people", len(persons))
 
-    result = run_pipeline(period, persons=persons)
+    result = run_pipeline(period, persons=persons,
+                          historical_only=not all_sources)
     logger.info("  signals: %d  errors: %d",
                 result["signals_collected"], len(result["errors"]))
 
@@ -161,6 +177,8 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="Publish even if quality checks fail")
     ap.add_argument("--skip-collect", action="store_true",
                     help="Use signals already in the database; do not re-fetch")
+    ap.add_argument("--all-sources", action="store_true",
+                    help="Also collect Reddit, YouTube and Google News (see note below)")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -192,7 +210,7 @@ def main() -> int:
             stats = {"persons": roster}
         else:
             print("[1/4] collecting and scoring")
-            stats = collect_and_score(period)
+            stats = collect_and_score(period, all_sources=args.all_sources)
 
         print("[2/4] checking data quality")
         problems = check_data_quality(period, stats["persons"])
