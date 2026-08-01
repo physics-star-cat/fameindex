@@ -159,6 +159,8 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="Collect, score and build; do not commit")
     ap.add_argument("--no-push", action="store_true", help="Commit but do not push")
     ap.add_argument("--force", action="store_true", help="Publish even if quality checks fail")
+    ap.add_argument("--skip-collect", action="store_true",
+                    help="Use signals already in the database; do not re-fetch")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -176,8 +178,21 @@ def main() -> int:
     print(f"started {datetime.now():%Y-%m-%d %H:%M}\n")
 
     try:
-        print("[1/4] collecting and scoring")
-        stats = collect_and_score(period)
+        if args.skip_collect:
+            # Re-checking or rebuilding a period whose signals are already
+            # collected. Collection is the slow part — a full run re-fetches
+            # every per-person signal over the network — so re-verifying a
+            # finished period should not pay for it again.
+            import sqlite3
+            con = sqlite3.connect(PROJECT / "fame_index.db")
+            roster = con.execute(
+                "select count(*) from persons where active=1").fetchone()[0]
+            con.close()
+            print("[1/4] --skip-collect: using signals already stored")
+            stats = {"persons": roster}
+        else:
+            print("[1/4] collecting and scoring")
+            stats = collect_and_score(period)
 
         print("[2/4] checking data quality")
         problems = check_data_quality(period, stats["persons"])

@@ -32,7 +32,7 @@ from server.db.queries import (
     get_blog_post,
     get_all_blog_posts,
 )
-from server.data.week_utils import previous_week, week_to_dates
+from server.data.week_utils import previous_period, period_to_dates
 from server.scoring.momentum import biggest_movers
 
 # Import schema module from the same directory (avoids 'site' name collision
@@ -140,7 +140,7 @@ def _write_page(path: str, html: str) -> None:
 def _build_rankings_data(week: str) -> list[dict]:
     """Query scores for a week and build template-ready ranking dicts."""
     scores = get_scores_for_week(week)
-    prev = previous_week(week)
+    prev = previous_period(week)
     prev_scores = get_scores_for_week(prev)
 
     # Build a lookup of previous week's ranks
@@ -440,7 +440,9 @@ def build_blog_page(week: str) -> str:
     if not post:
         return ""
 
-    monday, _ = week_to_dates(week)
+    # period_to_dates, not week_to_dates: a monthly period like "2026-M07"
+    # has no "-W" to split on and raised ValueError mid-build.
+    monday, _ = period_to_dates(week)
 
     # Find adjacent posts for navigation
     all_posts = get_all_blog_posts()

@@ -33,7 +33,16 @@ SIGNAL_PARAMS = {
     "gdelt_count": {
         "method": "log",
         "log_floor": 1,
-        "log_ceiling": 10_000,
+        # Ceiling raised from 10,000 when the source moved from the GDELT DOC
+        # API to BigQuery. The DOC API returned timeline VOLUME; BigQuery
+        # returns raw article counts, which are orders of magnitude larger.
+        #
+        # At 10,000 the news dimension saturated for 14% of the roster: Donald
+        # Trump (299,275 mentions) and KSI (12,113) both scored exactly 100, so
+        # a 25x difference registered as none at all. Observed monthly maximum
+        # is ~472,000; 500,000 keeps the top of the range distinguishable
+        # without compressing the middle.
+        "log_ceiling": 500_000,
     },
     "google_news_count": {
         "method": "log",
