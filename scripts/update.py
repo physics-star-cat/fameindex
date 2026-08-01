@@ -131,6 +131,17 @@ def check_data_quality(period: str, roster: int) -> list[str]:
             f"people have differing dimension coverage {shapes} — "
             "they would be ranked under different weightings")
 
+    # Two rows pointing at the same Wikipedia article are the same human, and
+    # will appear twice in the ranking. "Vladimir Zelenskiy" and "Volodymyr
+    # Zelenskyy" were published at #31 and #38 in the same month before this
+    # check existed.
+    dupes = con.execute(
+        "select wikipedia_title, count(*) c, group_concat(name, ' / ') "
+        "from persons where active=1 group by lower(replace(wikipedia_title,'_',' ')) "
+        "having c > 1").fetchall()
+    for _title, count, names in dupes:
+        problems.append(f"duplicate person: {names} ({count} rows, same article)")
+
     con.close()
     return problems
 

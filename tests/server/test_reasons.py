@@ -119,3 +119,29 @@ class TestHeadline:
         movers = {"climbers": [(1, "Alice", 30.0)], "fallers": []}
         headline = _make_headline(top, movers, [])
         assert headline.count("Alice") == 1
+
+
+class TestRosterDeduplication:
+    """
+    A person must not be promoted when we already track them under another name.
+
+    "Vladimir Zelenskiy" was promoted alongside the existing "Volodymyr
+    Zelenskyy" — the same Wikipedia article, the same human — and both were
+    published, at #31 and #38 in the same month. Matching on the display name
+    alone cannot catch that; the Wikipedia title is the real identity.
+    """
+
+    def test_normalisation_collapses_spelling_variants(self):
+        import importlib.util, sys
+        sys.path.insert(0, ".")
+        spec = importlib.util.spec_from_file_location("roster", "scripts/roster.py")
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+
+        # accents, punctuation and case must not create separate identities
+        assert m._norm("Volodymyr Zelenskyy") == m._norm("volodymyr_zelenskyy")
+        assert m._norm("Giorgia Meloni") == m._norm("Giorgia_Meloni")
+        assert m._norm("Pedro Sánchez") == m._norm("Pedro Sanchez")
+        assert m._norm("Charli D'Amelio") == m._norm("Charli Damelio")
+        # genuinely different people must stay distinct
+        assert m._norm("Mike Johnson") != m._norm("Boris Johnson")
+        assert m._norm("Giorgia Meloni") != m._norm("Christopher Meloni")

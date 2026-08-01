@@ -146,6 +146,37 @@ def is_living_person(name: str) -> tuple[bool, str]:
         return False, "unverified"  # never promote what we could not check
 
 
+def _norm(s: str) -> str:
+    """Lowercase, strip accents and punctuation — for identity comparison only."""
+    import unicodedata, re
+    s = unicodedata.normalize("NFD", s or "")
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def existing_identities() -> set[str]:
+    """
+    Everything already on the roster, in every form we might see it back.
+
+    Names, aliases AND Wikipedia titles, all normalised. Matching on the display
+    name alone is what let "Vladimir Zelenskiy" be promoted alongside the
+    existing "Volodymyr Zelenskyy" — the same person, ranked twice, at #31 and
+    #38 in a published month. The Wikipedia title is the real identity: two rows
+    pointing at one article are always the same person.
+    """
+    con = sqlite3.connect(PROJECT / "fame_index.db")
+    out = set()
+    for name, title, aliases in con.execute(
+            "select name, wikipedia_title, coalesce(aliases,'') from persons"):
+        out.add(_norm(name))
+        out.add(_norm(title))
+        for a in aliases.split("|"):
+            if a:
+                out.add(_norm(a))
+    con.close()
+    return out
+
+
 def current_roster() -> dict[str, int]:
     con = sqlite3.connect(PROJECT / "fame_index.db")
     rows = dict(con.execute("select name, id from persons where active=1").fetchall())
@@ -193,19 +224,28 @@ def main() -> int:
 
     print(f"=== Discovery — most-mentioned in {args.period} ===")
     found = discover(args.period)
-    newcomers = [(n, m) for n, m in found if n not in roster][:args.limit]
+    known = existing_identities()
+    newcomers = [(n, m) for n, m in found if _norm(n) not in known][:args.limit]
     print(f"{len(found)} names above {PROMOTION_MIN_MENTIONS:,} mentions; "
           f"{len(newcomers)} not already on the roster. Checking Wikidata...\n")
 
     promote = []
     for name, mentions in newcomers:
         eligible, detail = is_living_person(name)
-        if eligible:
-            promote.append((name, mentions, detail))
-            wiki = f"  -> {detail}" if detail != name else ""
-            print(f"  + {name:<32} {mentions:>9,}  eligible{wiki}")
-        else:
+        if not eligible:
             print(f"    {name:<32} {mentions:>9,}  {detail} — skipped")
+            continue
+        # Second identity check, now that Wikidata has resolved the real article
+        # title. GDELT's spelling may be new to us while the person is not:
+        # "Vladimir Zelenskiy" resolves to Volodymyr Zelenskyy, whom we already
+        # track. Without this the same person is ranked twice.
+        if _norm(detail) in known:
+            print(f"    {name:<32} {mentions:>9,}  already tracked as {detail} — skipped")
+            continue
+        promote.append((name, mentions, detail))
+        known.add(_norm(detail)); known.add(_norm(name))
+        wiki = f"  -> {detail}" if detail != name else ""
+        print(f"  + {name:<32} {mentions:>9,}  eligible{wiki}")
 
     print(f"\n=== Relegation — bottom {int((1-RELEGATION_BAND)*100)}% "
           f"for {RELEGATION_PERIODS} consecutive periods ===")
