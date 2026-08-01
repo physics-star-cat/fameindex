@@ -21,7 +21,7 @@ comparable to live ones (see server/scoring/engine.py).
 USAGE
 
     python scripts/backfill.py                    # every missing quarter up to last complete
-    python scripts/backfill.py --from 2026-Q1 --to 2026-Q2
+    python scripts/backfill.py --from 2026-M01 --to 2026-M07
     python scripts/backfill.py --dry-run          # show the plan, fetch nothing
     python scripts/backfill.py --force            # redo weeks already scored
 
@@ -39,7 +39,7 @@ sys.path.insert(0, ".")
 
 from server.data.pipeline import run_pipeline
 from server.data.week_utils import (
-    date_to_quarter, last_complete_quarter, period_to_dates, previous_quarter,
+    date_to_month, last_complete_month, period_to_dates, previous_month,
 )
 from server.db import init_db
 from server.db.queries import get_all_persons, get_all_scored_weeks, store_scores
@@ -52,8 +52,8 @@ logger = logging.getLogger("backfill")
 DELAY_BETWEEN_QUARTERS = 5.0
 
 
-def quarters_between(start: str, end: str) -> list[str]:
-    """Every quarter from start to end inclusive."""
+def periods_between(start: str, end: str) -> list[str]:
+    """Every month from start to end inclusive."""
     out, cur = [], start
     # Walk backwards from end so the ordering logic stays trivial
     seen = []
@@ -62,7 +62,7 @@ def quarters_between(start: str, end: str) -> list[str]:
         seen.append(q)
         if q == start:
             break
-        prev = previous_quarter(q)
+        prev = previous_month(q)
         if period_to_dates(prev)[0] < period_to_dates(start)[0]:
             break
         q = prev
@@ -91,8 +91,8 @@ def backfill_period(week: str, persons: list[dict]) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Backfill past Fame Index quarters.")
-    ap.add_argument("--from", dest="start", help="First quarter, e.g. 2026-Q1")
-    ap.add_argument("--to", dest="end", help="Last quarter, e.g. 2026-Q2")
+    ap.add_argument("--from", dest="start", help="First month, e.g. 2026-M01")
+    ap.add_argument("--to", dest="end", help="Last month, e.g. 2026-M07")
     ap.add_argument("--dry-run", action="store_true", help="Show the plan, fetch nothing")
     ap.add_argument("--force", action="store_true", help="Redo quarters that already have scores")
     args = ap.parse_args()
@@ -102,27 +102,27 @@ def main() -> int:
     init_db()
     done = set(get_all_scored_weeks())
 
-    end = args.end or last_complete_quarter()
+    end = args.end or last_complete_month()
     if args.start:
         start = args.start
     elif done:
         # Resume from the quarter after the latest already scored
-        quarters_done = [d for d in done if "-Q" in d]
+        quarters_done = [d for d in done if "-M" in d]
         if quarters_done:
             latest = max(quarters_done)
-            start = date_to_quarter(period_to_dates(latest)[1] + timedelta(days=1))
+            start = date_to_month(period_to_dates(latest)[1] + timedelta(days=1))
         else:
-            start = "2026-Q1"
+            start = "2026-M01"
     else:
         print("No existing scores and no --from given; nothing to infer from.")
         return 1
 
-    planned = quarters_between(start, end)
+    planned = periods_between(start, end)
     todo = planned if args.force else [w for w in planned if w not in done]
 
-    print(f"Already scored : {len(done)} quarter(s) — {', '.join(sorted(done))}")
-    print(f"Range          : {start} .. {end}  ({len(planned)} quarters)")
-    print(f"To reconstruct : {len(todo)} quarter(s)")
+    print(f"Already scored : {len(done)} period(s) — {', '.join(sorted(done))}")
+    print(f"Range          : {start} .. {end}  ({len(planned)} periods)")
+    print(f"To reconstruct : {len(todo)} period(s)")
     if not todo:
         print("Nothing to do.")
         return 0
@@ -134,7 +134,8 @@ def main() -> int:
 
     persons = [
         {"id": p.id, "name": p.name, "wikipedia_title": p.wikipedia_title,
-         "spotify_id": p.spotify_id, "tmdb_id": p.tmdb_id}
+         "spotify_id": p.spotify_id, "tmdb_id": p.tmdb_id,
+         "aliases": getattr(p, "aliases", None)}
         for p in get_all_persons()
     ]
     print(f"Persons        : {len(persons)}\n")
@@ -155,11 +156,11 @@ def main() -> int:
     for s in summaries:
         print(f"  {s['week']}  signals={s['signals']:>5}  scored={s['scored']:>4}  errors={s['errors']}")
     if failed:
-        print(f"\n  {len(failed)} quarter(s) FAILED — rerun to retry, completed quarters are skipped:")
+        print(f"\n  {len(failed)} period(s) FAILED — rerun to retry, completed quarters are skipped:")
         for w, e in failed:
             print(f"    {w}: {e[:100]}")
         return 1
-    print(f"\n  {len(summaries)} quarter(s) reconstructed.")
+    print(f"\n  {len(summaries)} period(s) reconstructed.")
     return 0
 
 

@@ -28,6 +28,10 @@ class Person(Base):
     # Optional identifiers for cultural output sources
     spotify_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tmdb_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Alternative names GDELT may use — legal names for performers with stage
+    # names, forms without nobiliary particles. Pipe-separated. See
+    # server/data/sources/gdelt_bigquery.py for why matching needs them.
+    aliases: Mapped[str] = mapped_column(String(500), nullable=True)
 
     scores: Mapped[list["Score"]] = relationship(back_populates="person")
     signals: Mapped[list["Signal"]] = relationship(back_populates="person")

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-update.py — the one command that publishes a quarter of the Fame Index.
+update.py — the one command that publishes a month of the Fame Index.
 
-Run it when a quarter closes:
+Run it on the 1st; it publishes the month that just ended:
 
-    python scripts/update.py                 # latest complete quarter
-    python scripts/update.py --period 2026-Q2
+    python scripts/update.py                 # the month that just ended
+    python scripts/update.py --period 2026-M07
     python scripts/update.py --dry-run       # do everything except commit/push
     python scripts/update.py --no-push       # build and commit, don't publish
 
@@ -16,7 +16,7 @@ Sequence: collect -> score -> write post -> build site -> commit -> push.
 Vercel deploys from the push, which is more robust unattended than `vercel
 --prod` (that needs a live CLI token).
 
-Nothing is committed unless every prior step succeeded. A half-published quarter
+Nothing is committed unless every prior step succeeded. A half-published month
 is worse than an unpublished one.
 """
 
@@ -53,7 +53,8 @@ def collect_and_score(period: str) -> dict:
     init_db()
     persons = [
         {"id": p.id, "name": p.name, "wikipedia_title": p.wikipedia_title,
-         "spotify_id": p.spotify_id, "tmdb_id": p.tmdb_id}
+         "spotify_id": p.spotify_id, "tmdb_id": p.tmdb_id,
+         "aliases": getattr(p, "aliases", None)}
         for p in get_all_persons()
     ]
     logger.info("  roster: %d people", len(persons))
@@ -153,8 +154,8 @@ def publish(period: str, push: bool) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Publish a quarter of the Fame Index.")
-    ap.add_argument("--period", help="Quarter, e.g. 2026-Q2. Defaults to the latest complete one.")
+    ap = argparse.ArgumentParser(description="Publish a month of the Fame Index.")
+    ap.add_argument("--period", help="Month, e.g. 2026-M07. Defaults to the month that just ended.")
     ap.add_argument("--dry-run", action="store_true", help="Collect, score and build; do not commit")
     ap.add_argument("--no-push", action="store_true", help="Commit but do not push")
     ap.add_argument("--force", action="store_true", help="Publish even if quality checks fail")
@@ -162,8 +163,8 @@ def main() -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    from server.data.week_utils import last_complete_quarter
-    period = args.period or last_complete_quarter()
+    from server.data.week_utils import last_complete_month
+    period = args.period or last_complete_month()
 
     logs = PROJECT / "logs"
     logs.mkdir(exist_ok=True)

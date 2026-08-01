@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Fame Index{% endblock %}</title>
-    <meta name="description" content="{% block description %}Quarterly fame rankings powered by data.{% endblock %}">
+    <meta name="description" content="{% block description %}Monthly fame rankings powered by data.{% endblock %}">
     <link rel="canonical" href="{% block canonical %}https://fameindex.net{% endblock %}">
 
     <!-- Open Graph -->
     <meta property="og:title" content="{% block og_title %}Fame Index{% endblock %}">
-    <meta property="og:description" content="{% block og_description %}Quarterly fame rankings powered by data.{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Monthly fame rankings powered by data.{% endblock %}">
     <meta property="og:url" content="{% block og_url %}https://fameindex.net{% endblock %}">
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:site_name" content="Fame Index">
@@ -20,7 +20,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{% block tw_title %}Fame Index{% endblock %}">
-    <meta name="twitter:description" content="{% block tw_description %}Quarterly fame rankings powered by data.{% endblock %}">
+    <meta name="twitter:description" content="{% block tw_description %}Monthly fame rankings powered by data.{% endblock %}">
 
     <link rel="stylesheet" href="/static/css/teletext.css?v=2">
     {% block schema %}{% endblock %}
@@ -41,12 +41,12 @@
                degrades to a plain open list — in keeping with the teletext idea. #}
             {% if all_periods %}
             <details class="period-picker">
-                <summary aria-label="Choose a quarter">{{ current_period }} &#9662;</summary>
+                <summary aria-label="Choose a month">{{ current_period|period_label }} &#9662;</summary>
                 <ul>
                     {% for p in all_periods %}
                     <li>
-                        <a href="/quarter/{{ p }}/"{% if p == current_period %} class="is-current" aria-current="page"{% endif %}>
-                            {{ p }}{% if p == current_period %} &#9679;{% endif %}
+                        <a href="/month/{{ p }}/"{% if p == current_period %} class="is-current" aria-current="page"{% endif %}>
+                            {{ p|period_label }}{% if p == current_period %} &#9679;{% endif %}
                         </a>
                     </li>
                     {% endfor %}
@@ -76,7 +76,7 @@
     </main>
 
     <footer class="teletext-footer">
-        <p>Updated quarterly. Rankings are data-driven, not editorial.</p>
+        <p>Updated monthly. Rankings are data-driven, not editorial.</p>
     </footer>
 </body>
 </html>

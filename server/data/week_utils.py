@@ -82,6 +82,21 @@ def period_to_dates(period: str) -> tuple[date, date]:
     Raises:
         ValueError: if the period is neither a valid quarter nor a valid week.
     """
+    if "-M" in period:
+        year_str, m_str = period.split("-M", 1)
+        try:
+            year, month = int(year_str), int(m_str)
+        except ValueError:
+            raise ValueError(f"Malformed month: {period!r}")
+        if not 1 <= month <= 12:
+            raise ValueError(f"Month must be 1-12, got {period!r}")
+        start = date(year, month, 1)
+        if month == 12:
+            end = date(year, 12, 31)
+        else:
+            end = date(year, month + 1, 1) - timedelta(days=1)
+        return start, end
+
     if "-Q" in period:
         year_str, q_str = period.split("-Q", 1)
         try:
@@ -138,8 +153,63 @@ def previous_period(period: str) -> str:
     wiki edit velocity, which is a ratio of this period's revisions to last
     period's.
     """
+    if "-M" in period:
+        return previous_month(period)
     if "-Q" in period:
         return previous_quarter(period)
     if "-W" in period:
         return previous_week(period)
     raise ValueError(f"Unrecognised period: {period!r}")
+
+
+# --- Monthly periods -------------------------------------------------------
+#
+# The index publishes monthly. Quarterly proved too infrequent for a site whose
+# appeal is watching fame move. The internal form is "2026-M07": it sorts
+# correctly, cannot be confused with a week or a quarter, and matches the
+# existing shape. It is shown to readers as "Jul-2026".
+
+_MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def date_to_month(d: date) -> str:
+    """Convert a date to its month period, e.g. '2026-M07'."""
+    return f"{d.year}-M{d.month:02d}"
+
+
+def previous_month(period: str) -> str:
+    """The month before the given one, rolling back across year boundaries."""
+    year_str, m_str = period.split("-M", 1)
+    year, month = int(year_str), int(m_str)
+    if month == 1:
+        return f"{year - 1}-M12"
+    return f"{year}-M{month - 1:02d}"
+
+
+def last_complete_month(today: date | None = None) -> str:
+    """
+    The most recent month that has fully elapsed.
+
+    The current month is excluded because it is still accruing; ranking a
+    part-month as if complete would show everyone crashing. Running on the 1st
+    therefore publishes the month that just ended, which is the intended cadence.
+    """
+    d = today or date.today()
+    return previous_month(date_to_month(d))
+
+
+def format_period(period: str) -> str:
+    """
+    Human form of a period identifier.
+
+    Months render as "Jul-2026"; other period types are already readable and
+    pass through unchanged.
+    """
+    if "-M" in period:
+        year_str, m_str = period.split("-M", 1)
+        try:
+            return f"{_MONTH_ABBR[int(m_str) - 1]}-{year_str}"
+        except (ValueError, IndexError):
+            return period
+    return period

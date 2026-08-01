@@ -94,10 +94,10 @@ def period_path(period: str) -> str:
     """
     Output path for a period's ranking page.
 
-    Quarters live at /quarter/2026-Q2/; the legacy weekly pages stay at
-    /week/2026-W13/ so existing indexed URLs keep resolving.
+    Months live at /month/2026-M07/. Older quarterly and weekly pages keep their
+    own prefixes so any indexed URLs continue to resolve.
     """
-    folder = "quarter" if "-Q" in period else "week"
+    folder = "month" if "-M" in period else "quarter" if "-Q" in period else "week"
     return f"{folder}/{period}/index.html"
 
 
@@ -108,6 +108,9 @@ def _get_env() -> Environment:
         autoescape=True,
     )
     env.globals.update(_PERIOD_CONTEXT)
+    # Templates show 'Jul-2026' while URLs and IDs stay '2026-M07'.
+    from server.data.week_utils import format_period
+    env.filters['period_label'] = format_period
     return env
 
 
@@ -165,8 +168,8 @@ def build_site(week: str) -> None:
     # Picker context must be set BEFORE any page renders — every template pulls
     # all_periods/current_period from the Jinja globals, and pages built before
     # this point would silently omit the picker.
-    quarters = sorted([w for w in get_all_scored_weeks() if "-Q" in w], reverse=True)
-    set_period_context(week, quarters)
+    months = sorted([w for w in get_all_scored_weeks() if "-M" in w], reverse=True)
+    set_period_context(week, months)
 
     # Clean and recreate output directory for a fresh build
     import shutil

@@ -123,3 +123,56 @@ class TestQuarterHelpers:
         assert last_complete_quarter(date(2026, 1, 1)) == "2025-Q4"
         # Last day of Q2: Q2 is not yet over, so Q1
         assert last_complete_quarter(date(2026, 6, 30)) == "2026-Q1"
+
+
+class TestMonthlyPeriods:
+    """
+    The index publishes monthly: quarterly proved too infrequent to feel live.
+
+    Internal form is '2026-M07' — it sorts correctly, cannot be confused with a
+    week or quarter, and matches the existing '-W'/'-Q' shape. It is displayed
+    as 'Jul-2026'.
+    """
+
+    def test_month_boundaries(self):
+        from server.data.week_utils import period_to_dates
+        from datetime import date
+        assert period_to_dates("2026-M01") == (date(2026, 1, 1), date(2026, 1, 31))
+        assert period_to_dates("2026-M07") == (date(2026, 7, 1), date(2026, 7, 31))
+        assert period_to_dates("2026-M12") == (date(2026, 12, 1), date(2026, 12, 31))
+
+    def test_february_length(self):
+        from server.data.week_utils import period_to_dates
+        from datetime import date
+        assert period_to_dates("2026-M02") == (date(2026, 2, 1), date(2026, 2, 28))
+        assert period_to_dates("2024-M02") == (date(2024, 2, 1), date(2024, 2, 29))  # leap
+
+    def test_rejects_nonsense(self):
+        import pytest
+        from server.data.week_utils import period_to_dates
+        for bad in ["2026-M00", "2026-M13", "2026-Mxx"]:
+            with pytest.raises(ValueError):
+                period_to_dates(bad)
+
+    def test_previous_month_rolls_the_year(self):
+        from server.data.week_utils import previous_period
+        assert previous_period("2026-M07") == "2026-M06"
+        assert previous_period("2026-M01") == "2025-M12"
+
+    def test_last_complete_month_excludes_the_current_one(self):
+        from server.data.week_utils import last_complete_month
+        from datetime import date
+        # Run on the 1st: the month that just ended is the one to publish.
+        assert last_complete_month(date(2026, 8, 1)) == "2026-M07"
+        # Mid-month: still the previous month; this one is incomplete.
+        assert last_complete_month(date(2026, 8, 20)) == "2026-M07"
+        assert last_complete_month(date(2026, 1, 3)) == "2025-M12"
+
+    def test_display_form(self):
+        from server.data.week_utils import format_period
+        assert format_period("2026-M07") == "Jul-2026"
+        assert format_period("2026-M01") == "Jan-2026"
+        assert format_period("2026-M12") == "Dec-2026"
+        # Other period types still render sensibly
+        assert format_period("2026-Q2") == "2026-Q2"
+        assert format_period("2026-W13") == "2026-W13"

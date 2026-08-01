@@ -70,9 +70,23 @@ def run_pipeline(week: str, persons: list[dict] | None = None,
     # scans about a gigabyte. If it fails we carry on without the news
     # dimension — the scoring engine re-normalises over whichever signals are
     # present, and a missing dimension is far safer than a fabricated one.
+    # Include aliases: GDELT extracts names from article text, so it records
+    # legal names for performers with stage names ("Abel Tesfaye", not "The
+    # Weeknd") and drops nobiliary particles ("Ursula Leyen"). Passing names
+    # alone matched 107/121; with aliases it matches all of them. Each person is
+    # credited with the highest count across their variants.
     news_counts = {}
+    variants = {}
+    for p in persons:
+        variants[p["name"]] = [p["name"]] + [
+            a for a in (p.get("aliases") or "").split("|") if a]
     try:
-        news_counts = news_counts_for_roster([p["name"] for p in persons], week)
+        raw = news_counts_for_roster(
+            sorted({v for vs in variants.values() for v in vs}), week)
+        news_counts = {
+            name: max(raw[v] for v in vs if v in raw)
+            for name, vs in variants.items() if any(v in raw for v in vs)
+        }
     except Exception as e:
         msg = f"BigQuery news fetch failed for {week}: {e}"
         logger.error(msg)
@@ -125,6 +139,7 @@ def _load_persons_from_db() -> list[dict]:
                 "wikipedia_title": p.wikipedia_title,
                 "spotify_id": p.spotify_id,
                 "tmdb_id": p.tmdb_id,
+                "aliases": getattr(p, "aliases", None),
             }
             for p in persons
         ]
