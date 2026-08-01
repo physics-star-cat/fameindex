@@ -40,6 +40,17 @@ MAX_SCAN_GB = 10.0
 # be filtered cheaply.
 GKG_TABLE = "`gdelt-bq.gdeltv2.gkg_partitioned`"
 
+# Diacritics are stripped from BOTH sides before matching.
+#
+# GDELT stores names unaccented, so a byte-exact LIKE missed "Beyoncé",
+# "Kylian Mbappé", "Rosalía" and anyone else with an accent — they came back
+# with no news signal at all, which is worse than a wrong number: people with
+# and without a news dimension get ranked under different weightings.
+#
+# NORMALIZE(x, NFD) decomposes accented characters into base + combining mark,
+# then \pM strips the marks. "Beyoncé" -> "beyonce".
+_STRIP = r"REGEXP_REPLACE(NORMALIZE(LOWER({}), NFD), r'\pM', '')"
+
 _ROSTER_SQL = f"""
 SELECT p AS person, COUNT(*) AS mentions
 FROM {GKG_TABLE},
@@ -47,7 +58,7 @@ FROM {GKG_TABLE},
 CROSS JOIN UNNEST(@names) AS p
 WHERE _PARTITIONTIME BETWEEN TIMESTAMP(@start) AND TIMESTAMP(@end)
   AND raw != ''
-  AND LOWER(raw) LIKE CONCAT('%', LOWER(p), '%')
+  AND {_STRIP.format('raw')} LIKE CONCAT('%', {_STRIP.format('p')}, '%')
 GROUP BY p
 """
 
