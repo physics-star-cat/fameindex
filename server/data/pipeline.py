@@ -24,7 +24,7 @@ from server.data.sources.reddit import weekly_social_score as reddit_score
 from server.data.sources.youtube import weekly_youtube_score
 from server.data.sources.spotify import fetch_artist_popularity
 from server.data.sources.tmdb import fetch_person_popularity as tmdb_popularity
-from server.data.sources.wikidata import institutional_score
+from server.data.sources.wikidata_cache import institutional_score_cached
 
 from server.data.normalize import normalize_batch
 from server.db import init_db, get_session
@@ -224,8 +224,10 @@ def _fetch_all_dimensions(person: dict, week: str, errors: list,
                    lambda: float(tmdb_popularity(tmdb_id)))
 
     # --- INSTITUTIONAL dimension ---
+    # Cached: awards barely move, and re-querying 128 entities every month made
+    # this both the slowest signal and the main source of intermittent gaps.
     _try_fetch(signals, errors, name, "wikidata_recognition", pid, week,
-               lambda: float(institutional_score(wiki)))
+               lambda: float(institutional_score_cached(wiki)))
 
     return signals
 

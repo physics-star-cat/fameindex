@@ -38,7 +38,7 @@ class TestFetchAllDimensions:
     @patch("server.data.pipeline.reddit_score", return_value=500.0)
     @patch("server.data.pipeline.fetch_mention_velocity", return_value={"velocity": 2.0})
     @patch("server.data.pipeline.weekly_youtube_score", return_value=100.0)
-    @patch("server.data.pipeline.institutional_score", return_value=45.0)
+    @patch("server.data.pipeline.institutional_score_cached", return_value=45.0)
     def test_collects_all_sources(self, *mocks):
         person = {"id": 1, "name": "Test", "wikipedia_title": "Test"}
         errors = []
@@ -67,7 +67,7 @@ class TestFetchAllDimensions:
     @patch("server.data.pipeline.weekly_youtube_score", return_value=50.0)
     @patch("server.data.pipeline.fetch_artist_popularity", return_value=85)
     @patch("server.data.pipeline.tmdb_popularity", return_value=120.0)
-    @patch("server.data.pipeline.institutional_score", return_value=30.0)
+    @patch("server.data.pipeline.institutional_score_cached", return_value=30.0)
     def test_includes_cultural_when_ids_present(self, *mocks):
         person = {
             "id": 1, "name": "Test", "wikipedia_title": "Test",
@@ -89,7 +89,7 @@ class TestFetchAllDimensions:
     @patch("server.data.pipeline.reddit_score", return_value=500.0)
     @patch("server.data.pipeline.fetch_mention_velocity", return_value={"velocity": 1.0})
     @patch("server.data.pipeline.weekly_youtube_score", return_value=0.0)
-    @patch("server.data.pipeline.institutional_score", return_value=0.0)
+    @patch("server.data.pipeline.institutional_score_cached", return_value=0.0)
     def test_handles_source_failure(self, *mocks):
         person = {"id": 1, "name": "Test", "wikipedia_title": "Test"}
         errors = []
@@ -109,7 +109,7 @@ class TestRunPipeline:
     @patch("server.data.pipeline.reddit_score", return_value=300.0)
     @patch("server.data.pipeline.fetch_mention_velocity", return_value={"velocity": 1.25})
     @patch("server.data.pipeline.weekly_youtube_score", return_value=50.0)
-    @patch("server.data.pipeline.institutional_score", return_value=20.0)
+    @patch("server.data.pipeline.institutional_score_cached", return_value=20.0)
     @patch("server.data.pipeline.upsert_signal")
     @patch("server.data.pipeline.get_historical_signals", return_value=[])
     def test_end_to_end(self, mock_hist, mock_upsert, *source_mocks):
@@ -135,7 +135,7 @@ class TestBulkNewsCounts:
     ~1 GB query, so run_pipeline pre-fetches and passes the mapping down.
     """
 
-    @patch("server.data.pipeline.institutional_score", return_value=45.0)
+    @patch("server.data.pipeline.institutional_score_cached", return_value=45.0)
     @patch("server.data.pipeline.fetch_mention_velocity", return_value={"velocity": 1.2})
     @patch("server.data.pipeline.wiki_pageviews", return_value=150000)
     def test_uses_supplied_count(self, *mocks):
@@ -148,7 +148,7 @@ class TestBulkNewsCounts:
         assert len(news) == 1
         assert news[0]["raw_value"] == 4321.0
 
-    @patch("server.data.pipeline.institutional_score", return_value=45.0)
+    @patch("server.data.pipeline.institutional_score_cached", return_value=45.0)
     @patch("server.data.pipeline.fetch_mention_velocity", return_value={"velocity": 1.2})
     @patch("server.data.pipeline.wiki_pageviews", return_value=150000)
     def test_absent_name_records_no_signal(self, *mocks):

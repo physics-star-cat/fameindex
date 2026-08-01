@@ -41,8 +41,8 @@ RETRYABLE = {
 
 
 def _wikidata(person):
-    from server.data.sources.wikidata import institutional_score
-    return float(institutional_score(person["wikipedia_title"]))
+    from server.data.sources.wikidata_cache import institutional_score_cached
+    return float(institutional_score_cached(person["wikipedia_title"]))
 
 
 def _pageviews(person, period):
