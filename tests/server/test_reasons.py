@@ -90,3 +90,32 @@ class TestDescribeMove:
             now={"gdelt_count": 101}, before={"gdelt_count": 100},
         )
         assert describe_move(1, "2026-Q2", "2026-Q1", rising=True) is None
+
+
+class TestHeadline:
+    """The number one must not also be named as the climber."""
+
+    def test_top_person_is_not_reused_as_climber(self):
+        from unittest.mock import MagicMock
+        from server.blog.generator import _make_headline
+
+        top = MagicMock()
+        top.person_id = 1
+        top.person.name = "Alice"
+
+        # Alice is both number one and the biggest riser; Bob is next.
+        movers = {"climbers": [(1, "Alice", 30.0), (2, "Bob", 20.0)], "fallers": []}
+        headline = _make_headline(top, movers, [])
+        assert headline.count("Alice") == 1, f"Alice named twice: {headline}"
+        assert "Bob" in headline
+
+    def test_falls_back_when_the_only_climber_is_the_top(self):
+        from unittest.mock import MagicMock
+        from server.blog.generator import _make_headline
+
+        top = MagicMock()
+        top.person_id = 1
+        top.person.name = "Alice"
+        movers = {"climbers": [(1, "Alice", 30.0)], "fallers": []}
+        headline = _make_headline(top, movers, [])
+        assert headline.count("Alice") == 1

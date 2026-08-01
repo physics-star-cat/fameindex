@@ -143,7 +143,7 @@ def publish(period: str, push: bool) -> None:
     # fame_index.db is gitignored — it is data, not source, and Vercel serves
     # the rendered output. Only the built site is committed.
     run_git("add", "-A", "site/output")
-    run_git("commit", "-m", f"{period}: rankings and quarterly update")
+    run_git("commit", "-m", f"{period}: rankings and monthly update")
     logger.info("  committed")
 
     if push:

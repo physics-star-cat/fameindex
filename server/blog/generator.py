@@ -288,10 +288,13 @@ def generate_weekly_post(week: str) -> dict:
 
 def _make_headline(top, movers: dict, scores: list) -> str:
     """Generate a pithy headline for the blog post."""
-    parts = [top.person.name]
-    if movers["climbers"]:
-        climber_name = movers["climbers"][0][1]
-        cat = _get_category_for_person(movers["climbers"][0][0], scores)
+    # Skip the number one when choosing a climber. Someone can top the chart AND
+    # be the biggest riser — Christopher Nolan did both in 2026-M07 — which
+    # produced the headline "Christopher Nolan Reigns, Christopher Nolan Climbs".
+    climbers = [c for c in movers["climbers"] if c[0] != top.person_id]
+    if climbers:
+        climber_name = climbers[0][1]
+        cat = _get_category_for_person(climbers[0][0], scores)
         verbs = {
             "musician": "Surges", "actor": "Rises", "politician": "Ascends",
             "athlete": "Storms Up", "business": "Rallies", "creator": "Breaks Through",
