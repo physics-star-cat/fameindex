@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>How It Works — Fame Index Methodology</title>
-    <meta name="description" content="How the Fame Index measures fame: five dimensions, ten data sources, one weekly score.">
+    <meta name="description" content="How do you measure fame? Five dimensions, ten data sources, and one weekly score. Here's exactly how the Fame Index works.">
     <link rel="canonical" href="https://fameindex.net/methodology/">
 
     <!-- Open Graph -->
     <meta property="og:title" content="How It Works — Fame Index Methodology">
-    <meta property="og:description" content="How the Fame Index measures fame: five dimensions, ten data sources, one weekly score.">
+    <meta property="og:description" content="How do you measure fame? Five dimensions, ten data sources, and one weekly score. Here's exactly how the Fame Index works.">
     <meta property="og:url" content="https://fameindex.net/methodology/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Fame Index">
@@ -20,7 +20,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="How It Works — Fame Index Methodology">
-    <meta name="twitter:description" content="How the Fame Index measures fame: five dimensions, ten data sources, one weekly score.">
+    <meta name="twitter:description" content="How do you measure fame? Five dimensions, ten data sources, and one weekly score. Here's exactly how the Fame Index works.">
 
     <link rel="stylesheet" href="/static/css/teletext.css?v=2">
     
@@ -37,6 +37,8 @@
     <header class="teletext-header">
         <div class="header-top">
             <div class="page-number">P500</div>
+            
+            
             <div class="timestamp">Methodology</div>
         </div>
         <h1 class="site-title"><span class="title-fame">FAME</span> <span class="title-index">INDEX</span></h1>
@@ -62,10 +64,19 @@
 
     <section class="method-section">
         <h3>WHAT IS THE FAME INDEX?</h3>
-        <p>A weekly ranking of public figures by measurable fame signals. It does not measure quality, talent, or moral worth — only how much the world is paying attention to someone right now.</p>
+        <p>A monthly ranking of public figures by measurable fame signals. It does not measure quality, talent, or moral worth — only how much the world is paying attention to someone right now.</p>
     </section>
 
     <section class="method-section">
+        <h3>WHO IS ON THE LIST</h3>
+        <p>Nobody picks the list by hand. Each month we ask the global news record who was actually written about, then keep only the people it is reasonable to rank.</p>
+        <ul>
+            <li><strong>Living people only.</strong> The dead are excluded. A raw count of news mentions puts Jesus Christ and Julius Caesar near the top — that measures how often people write about history, not who is famous now.</li>
+            <li><strong>Real people only.</strong> Automated name extraction is imperfect: it reports Los Angeles, El Ni&ntilde;o and "Prime Minister" as though they were people. Everything is checked against Wikidata and anything that is not a human is dropped.</li>
+            <li><strong>Earn your place.</strong> Newcomers enter once they clear a mention threshold — enough that a single loud week is not sufficient.</li>
+            <li><strong>Lose your place.</strong> Anyone sitting in the bottom fifth for three months running is relegated. Their history stays; they simply stop being ranked. Fame is not a life sentence.</li>
+        </ul>
+
         <h3>THE SCORE</h3>
         <p>Every person gets a single headline number from 0 to 100.</p>
         <table>
@@ -147,7 +158,7 @@
     </main>
 
     <footer class="teletext-footer">
-        <p>Updated weekly. Rankings are data-driven, not editorial.</p>
+        <p>Updated monthly. Rankings are data-driven, not editorial.</p>
     </footer>
 </body>
 </html>

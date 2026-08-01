@@ -57,6 +57,12 @@ def _mock_score(person_id, name, slug, fame_score, rank, momentum=0.0,
     score.rank = rank
     score.momentum = momentum
     score.week = week
+    # The template compares sentiment numerically, so it must be a real number.
+    # Leaving it as a bare MagicMock raised "'>' not supported between instances
+    # of 'MagicMock' and 'int'" — a fixture gap, not a template fault.
+    score.sentiment = 0.0
+    score.sentiment_polarity = 0.0
+    score.controversy_index = 0.0
     score.dim_search = 50.0
     score.dim_news = 40.0
     score.dim_social = 30.0
@@ -136,7 +142,7 @@ class TestBuildPersonPage:
         assert "Alice" in html
         assert "85.0" in html
         assert "FAME SCORE" in html
-        assert "RECENT WEEKS" in html
+        assert "RECENT MONTHS" in html
 
     @patch("site_build_generate.get_person_history")
     def test_empty_history_returns_empty(self, mock_history):
