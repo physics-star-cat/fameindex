@@ -8,7 +8,7 @@ bridge between the private server code and the public site.
 Generated pages:
 - index.html (global ranking — same as latest week)
 - /person/{slug}.html (individual profiles)
-- /week/{week}.html (weekly snapshots)
+- /month/{period}/ (period snapshots; legacy /week/ and /quarter/ retained)
 - /blog/{week}.html (weekly blog posts)
 """
 
@@ -90,15 +90,30 @@ def set_period_context(current: str, all_periods: list[str]) -> None:
     _PERIOD_CONTEXT["all_periods"] = all_periods
 
 
-def period_path(period: str) -> str:
+def period_folder(period: str) -> str:
     """
-    Output path for a period's ranking page.
+    URL folder for a period: month, quarter or week.
 
-    Months live at /month/2026-M07/. Older quarterly and weekly pages keep their
-    own prefixes so any indexed URLs continue to resolve.
+    Single source of truth, because the page writer and the sitemap must agree.
+    They were computed separately and drifted: pages were written to /month/
+    while the sitemap advertised /week/, so every monthly URL in the sitemap was
+    a 404. The same class of defect cost lifebynumbers four months.
     """
-    folder = "month" if "-M" in period else "quarter" if "-Q" in period else "week"
-    return f"{folder}/{period}/index.html"
+    if "-M" in period:
+        return "month"
+    if "-Q" in period:
+        return "quarter"
+    return "week"
+
+
+def period_path(period: str) -> str:
+    """Output file path for a period's ranking page."""
+    return f"{period_folder(period)}/{period}/index.html"
+
+
+def period_url(period: str) -> str:
+    """Public URL path for a period's ranking page."""
+    return f"/{period_folder(period)}/{period}/"
 
 
 def _get_env() -> Environment:
@@ -541,7 +556,7 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
     for w in weeks:
         priority = "0.9" if w == week else "0.5"
         freq = "weekly" if w == week else "never"
-        urls.append(_sitemap_url(f"/week/{w}/", today, freq, priority))
+        urls.append(_sitemap_url(period_url(w), today, freq, priority))
 
     # Blog posts
     urls.append(_sitemap_url("/blog/", today, "weekly", "0.6"))

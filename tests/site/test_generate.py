@@ -246,3 +246,25 @@ class TestSchemaFunctions:
         data = json.loads(result.split(">", 1)[1].rsplit("<", 1)[0])
         assert data["@type"] == "BlogPosting"
         assert data["headline"] == "Test Post"
+
+
+class TestPeriodPathsAgree:
+    """
+    The page writer and the sitemap must resolve a period to the same place.
+
+    They were computed separately and drifted: pages were written to /month/
+    while the sitemap advertised /week/, so every monthly URL in the sitemap
+    pointed at a 404. Nothing raised — the build succeeded and the sitemap was
+    simply wrong, which is how this class of bug survives.
+    """
+
+    def test_page_path_and_url_agree(self):
+        from site_build_generate import period_path, period_url
+        for period in ["2026-M07", "2026-Q2", "2026-W13"]:
+            assert period_path(period) == period_url(period).strip("/") + "/index.html"
+
+    def test_each_period_type_gets_its_own_folder(self):
+        from site_build_generate import period_folder
+        assert period_folder("2026-M07") == "month"
+        assert period_folder("2026-Q2") == "quarter"
+        assert period_folder("2026-W13") == "week"
