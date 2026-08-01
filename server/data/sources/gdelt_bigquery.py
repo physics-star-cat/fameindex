@@ -49,7 +49,26 @@ GKG_TABLE = "`gdelt-bq.gdeltv2.gkg_partitioned`"
 #
 # NORMALIZE(x, NFD) decomposes accented characters into base + combining mark,
 # then \pM strips the marks. "Beyoncé" -> "beyonce".
-_STRIP = r"REGEXP_REPLACE(NORMALIZE(LOWER({}), NFD), r'\pM', '')"
+# Strip diacritics AND punctuation before matching, on both sides.
+#
+# GDELT normalises names when extracting them: "Robert Downey Jr." is stored as
+# "Robert Downey Jr", and "Charli D'Amelio" as "Charli Damelio". Our roster keeps
+# the human spelling, so a byte-exact LIKE missed both.
+#
+# Deliberately NOT loosened further. Matching on surname alone would conflate
+# Giorgia Meloni with Christopher Meloni, and Robert Downey Jr with Emma, Doug
+# and Susan Downey — all of whom appear in the same quarter. Where GDELT's form
+# genuinely differs (it drops the forename for Ocasio-Cortez), that belongs in
+# persons.aliases, not in a looser pattern.
+# Separators are REMOVED, not replaced with a space. Replacing them turned
+# "Charli D'Amelio" into "charli d amelio", which still failed to match GDELT's
+# "Charli Damelio". Collapsing to "charlidamelio" matches both, and likewise
+# "Robert Downey Jr." against "Robert Downey Jr".
+_STRIP = (
+    r"REGEXP_REPLACE("
+    r"REGEXP_REPLACE(NORMALIZE(LOWER({}), NFD), r'\pM', '')"
+    r", r'[^a-z0-9]+', '')"
+)
 
 _ROSTER_SQL = f"""
 SELECT p AS person, COUNT(*) AS mentions

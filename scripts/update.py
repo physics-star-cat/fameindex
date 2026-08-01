@@ -139,7 +139,9 @@ def publish(period: str, push: bool) -> None:
         logger.info("  nothing changed — already published?")
         return
 
-    run_git("add", "-A", "site/output", "fame_index.db")
+    # fame_index.db is gitignored — it is data, not source, and Vercel serves
+    # the rendered output. Only the built site is committed.
+    run_git("add", "-A", "site/output")
     run_git("commit", "-m", f"{period}: rankings and quarterly update")
     logger.info("  committed")
 
