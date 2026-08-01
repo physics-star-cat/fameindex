@@ -17,6 +17,7 @@ import logging
 from server.data.sources.wikipedia import weekly_aggregate as wiki_pageviews
 from server.data.sources.google_trends import fetch_interest_for_week
 from server.data.sources.gdelt import weekly_news_count
+from server.data.sources.gdelt_bigquery import news_counts_for_roster
 from server.data.sources.google_news import weekly_article_count
 from server.data.sources.social import fetch_mention_velocity
 from server.data.sources.reddit import weekly_social_score as reddit_score
@@ -63,8 +64,23 @@ def run_pipeline(week: str, persons: list[dict] | None = None,
     errors = []
     signals_collected = 0
 
+    # News comes from BigQuery in ONE query for the whole roster, before the
+    # per-person loop. The GDELT DOC API rate-limits per request and cost ~60s
+    # per person in backoff; BigQuery answers for everyone in ten seconds and
+    # scans about a gigabyte. If it fails we carry on without the news
+    # dimension — the scoring engine re-normalises over whichever signals are
+    # present, and a missing dimension is far safer than a fabricated one.
+    news_counts = {}
+    try:
+        news_counts = news_counts_for_roster([p["name"] for p in persons], week)
+    except Exception as e:
+        msg = f"BigQuery news fetch failed for {week}: {e}"
+        logger.error(msg)
+        errors.append(msg)
+
     for person in persons:
-        person_signals = _fetch_all_dimensions(person, week, errors, historical_only)
+        person_signals = _fetch_all_dimensions(
+            person, week, errors, historical_only, news_counts)
         signals_collected += len(person_signals)
 
         # Attach historical data for adaptive normalisation
@@ -115,7 +131,8 @@ def _load_persons_from_db() -> list[dict]:
 
 
 def _fetch_all_dimensions(person: dict, week: str, errors: list,
-                          historical_only: bool = False) -> list[dict]:
+                          historical_only: bool = False,
+                          news_counts: dict | None = None) -> list[dict]:
     """
     Fetch data from all sources across all dimensions for one person.
 
@@ -154,8 +171,15 @@ def _fetch_all_dimensions(person: dict, week: str, errors: list,
                    lambda: float(fetch_interest_for_week(name, week)))
 
     # --- NEWS dimension ---
-    _try_fetch(signals, errors, name, "gdelt_count", pid, week,
-               lambda: float(weekly_news_count(name, week)))
+    # Supplied in bulk from BigQuery by run_pipeline. A name absent from the
+    # mapping was genuinely not mentioned OR the bulk fetch failed; either way
+    # no signal is recorded, because a zero we cannot justify is what made the
+    # first backfill worthless.
+    if news_counts:
+        mentions = news_counts.get(name)
+        if mentions is not None:
+            _try_fetch(signals, errors, name, "gdelt_count", pid, week,
+                       lambda: float(mentions))
 
     if not historical_only:
         _try_fetch(signals, errors, name, "google_news_count", pid, week,

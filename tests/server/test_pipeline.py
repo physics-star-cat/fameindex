@@ -44,8 +44,9 @@ class TestFetchAllDimensions:
         errors = []
         signals = _fetch_all_dimensions(person, "2026-W04", errors)
 
-        # 7 sources (no spotify/tmdb without IDs; google_trends disabled)
-        assert len(signals) == 7
+        # 6 sources: google_trends disabled, and news is supplied in bulk
+        # by run_pipeline via BigQuery rather than fetched per person.
+        assert len(signals) == 6
         assert errors == []
 
         sources = {s["source"] for s in signals}
@@ -53,7 +54,7 @@ class TestFetchAllDimensions:
         # google_trends is deliberately absent — pytrends is blocked by Google
         # and returned 121/121 zeros. See pipeline.ENABLE_GOOGLE_TRENDS.
         assert "google_trends" not in sources
-        assert "gdelt_count" in sources
+        assert "gdelt_count" not in sources  # bulk-supplied, see news_counts
         assert "reddit_score" in sources
         assert "wikidata_recognition" in sources
 
@@ -76,7 +77,7 @@ class TestFetchAllDimensions:
         signals = _fetch_all_dimensions(person, "2026-W04", errors)
 
         # 10 sources (all including spotify + tmdb)
-        assert len(signals) == 9  # google_trends disabled
+        assert len(signals) == 8  # google_trends disabled; news bulk-supplied
         sources = {s["source"] for s in signals}
         assert "spotify_popularity" in sources
         assert "tmdb_popularity" in sources
@@ -94,7 +95,7 @@ class TestFetchAllDimensions:
         errors = []
         signals = _fetch_all_dimensions(person, "2026-W04", errors)
 
-        assert len(signals) == 6  # 7 - 1 failure
+        assert len(signals) == 5  # 6 - 1 failure
         assert len(errors) == 1
         assert "wikipedia_pageviews" in errors[0]
 
@@ -123,3 +124,40 @@ class TestRunPipeline:
         assert result["signals_collected"] == 14  # 2 persons x 7 sources
         assert result["errors"] == []
         assert mock_upsert.call_count == 14
+
+
+class TestBulkNewsCounts:
+    """
+    News is fetched once for the whole roster, not per person.
+
+    The GDELT DOC API rate-limits per request and cost roughly 60 seconds per
+    person in exponential backoff. BigQuery answers for all 121 people in one
+    ~1 GB query, so run_pipeline pre-fetches and passes the mapping down.
+    """
+
+    @patch("server.data.pipeline.institutional_score", return_value=45.0)
+    @patch("server.data.pipeline.fetch_mention_velocity", return_value={"velocity": 1.2})
+    @patch("server.data.pipeline.wiki_pageviews", return_value=150000)
+    def test_uses_supplied_count(self, *mocks):
+        person = {"id": 1, "name": "Someone", "wikipedia_title": "Someone"}
+        errors = []
+        signals = _fetch_all_dimensions(
+            person, "2026-Q2", errors, historical_only=True,
+            news_counts={"Someone": 4321})
+        news = [s for s in signals if s["source"] == "gdelt_count"]
+        assert len(news) == 1
+        assert news[0]["raw_value"] == 4321.0
+
+    @patch("server.data.pipeline.institutional_score", return_value=45.0)
+    @patch("server.data.pipeline.fetch_mention_velocity", return_value={"velocity": 1.2})
+    @patch("server.data.pipeline.wiki_pageviews", return_value=150000)
+    def test_absent_name_records_no_signal(self, *mocks):
+        # Not mentioned, or the bulk fetch failed — either way we must not
+        # invent a zero. That fabrication is what made the first backfill
+        # worthless.
+        person = {"id": 1, "name": "Nobody", "wikipedia_title": "Nobody"}
+        errors = []
+        signals = _fetch_all_dimensions(
+            person, "2026-Q2", errors, historical_only=True,
+            news_counts={"Someone Else": 10})
+        assert not [s for s in signals if s["source"] == "gdelt_count"]
