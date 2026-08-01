@@ -10,7 +10,8 @@ interesting thing about the subject.
 This makes the roster self-maintaining:
 
   discover   ask GDELT who was actually in the news this period
-  filter     keep only real humans, via Wikidata "instance of human" (Q5)
+  filter     keep only LIVING real humans — Wikidata "instance of human" (Q5)
+             and no date of death (P570)
   promote    add newcomers who clear the entry threshold
   relegate   retire anyone who has ranked in the bottom band for N periods
 
@@ -69,39 +70,80 @@ def discover(period: str, limit: int = 200) -> list[tuple[str, int]]:
     return [(r.person, int(r.mentions)) for r in _client().query(sql).result()]
 
 
-def is_human(name: str) -> bool:
+def is_living_person(name: str) -> tuple[bool, str]:
     """
-    True if Wikidata says this name is a human (Q5).
+    True if Wikidata says this is a human (Q5) who is not dead (no P570).
 
-    This is what keeps Los Angeles and El Nino out of a list of famous people.
+    Returns (eligible, detail). When eligible, detail is the English Wikipedia
+    article title; otherwise it is the reason for exclusion.
+
+    Two filters, both necessary:
+
+    Q5 keeps out the things GDELT wrongly extracts as people — Los Angeles,
+    El Nino, "Prime Minister", "Stacker Stacker".
+
+    P570 (date of death) keeps out the dead. Without it a raw news-mention
+    ranking admits Jesus Christ (48,747 mentions in one quarter) and Michael
+    Jackson (37,268), and any index of the currently famous that ranks Caesar is
+    not measuring fame, it is measuring how often people write about history.
     """
     import requests
+
+    UA = {"User-Agent": "FameIndex/1.0 (https://fameindex.net)"}
     try:
         resp = requests.get(
             "https://www.wikidata.org/w/api.php",
             params={"action": "wbsearchentities", "search": name,
-                    "language": "en", "format": "json", "limit": 1},
-            headers={"User-Agent": "FameIndex/1.0 (https://fameindex.net)"},
-            timeout=15)
+                    "language": "en", "format": "json", "limit": 7},
+            headers=UA, timeout=15)
         resp.raise_for_status()
         hits = resp.json().get("search", [])
         if not hits:
-            return False
-        qid = hits[0]["id"]
+            return False, "not in Wikidata"
 
+        # Fetch every candidate at once and pick the most notable HUMAN, judged
+        # by sitelink count.
+        #
+        # Taking search hit #1 blindly gets the wrong person. "Lindsey Graham"
+        # resolved to a deceased namesake rather than the sitting senator, which
+        # would have excluded him permanently on a false death date — the same
+        # mistake as conflating Robert Downey Jr with Emma Downey. Wikidata
+        # search ranks on string similarity, not fame; sitelinks are a decent
+        # proxy for which one the news means.
+        qids = "|".join(h["id"] for h in hits)
         resp = requests.get(
-            f"https://www.wikidata.org/wiki/Special:EntityData/{qid}.json",
-            headers={"User-Agent": "FameIndex/1.0 (https://fameindex.net)"},
-            timeout=15)
+            "https://www.wikidata.org/w/api.php",
+            params={"action": "wbgetentities", "ids": qids,
+                    "props": "claims|sitelinks", "format": "json"},
+            headers=UA, timeout=20)
         resp.raise_for_status()
-        claims = resp.json()["entities"][qid].get("claims", {})
-        for c in claims.get("P31", []):  # P31 = instance of
-            if c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") == "Q5":
-                return True
-        return False
+        entities = resp.json().get("entities", {})
+
+        humans = []
+        for qid, ent in entities.items():
+            claims = ent.get("claims", {})
+            if any(c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") == "Q5"
+                   for c in claims.get("P31", [])):
+                humans.append((len(ent.get("sitelinks", {})), qid, claims,
+                               ent.get("sitelinks", {})))
+
+        if not humans:
+            return False, "not a person"
+
+        _, qid, claims, sitelinks = max(humans, key=lambda x: x[0])
+        if claims.get("P570"):  # P570 = date of death
+            return False, "deceased"
+
+        # Take the real Wikipedia article title from the sitelink rather than
+        # guessing it from the name. GDELT writes "Vladimir Zelenskiy"; the
+        # article is "Volodymyr Zelenskyy". A guessed title means every
+        # Wikipedia signal fails for that person, forever.
+        title = sitelinks.get("enwiki", {}).get("title")
+        return True, title or "eligible"
+
     except Exception as e:
         logger.warning("Wikidata check failed for %s: %s", name, e)
-        return False  # do not promote what we could not verify
+        return False, "unverified"  # never promote what we could not check
 
 
 def current_roster() -> dict[str, int]:
@@ -157,11 +199,13 @@ def main() -> int:
 
     promote = []
     for name, mentions in newcomers:
-        if is_human(name):
-            promote.append((name, mentions))
-            print(f"  + {name:<32} {mentions:>9,}  human")
+        eligible, detail = is_living_person(name)
+        if eligible:
+            promote.append((name, mentions, detail))
+            wiki = f"  -> {detail}" if detail != name else ""
+            print(f"  + {name:<32} {mentions:>9,}  eligible{wiki}")
         else:
-            print(f"    {name:<32} {mentions:>9,}  not a person — skipped")
+            print(f"    {name:<32} {mentions:>9,}  {detail} — skipped")
 
     print(f"\n=== Relegation — bottom {int((1-RELEGATION_BAND)*100)}% "
           f"for {RELEGATION_PERIODS} consecutive periods ===")
@@ -179,12 +223,12 @@ def main() -> int:
         return 0
 
     con = sqlite3.connect(PROJECT / "fame_index.db")
-    for name, _ in promote:
+    for name, _, wiki_title in promote:
         slug = name.lower().replace(" ", "-").replace(".", "").replace("'", "")
         con.execute(
             "insert into persons (name, slug, wikipedia_title, category, region, active) "
             "values (?,?,?,?,?,1)",
-            (name, slug, name.replace(" ", "_"), "unknown", "unknown"))
+            (name, slug, (wiki_title or name).replace(" ", "_"), "unknown", "unknown"))
     for pid, _, _ in relegate:
         con.execute("update persons set active=0 where id=?", (pid,))
     con.commit()
