@@ -268,7 +268,12 @@ def main() -> int:
         con.execute(
             "insert into persons (name, slug, wikipedia_title, category, region, active) "
             "values (?,?,?,?,?,1)",
-            (name, slug, (wiki_title or name).replace(" ", "_"), "unknown", "unknown"))
+            # region defaults to the valid 'global' catch-all (never 'unknown',
+            # which is not a real region bucket and drops the person from every
+            # /region/ page). category stays 'unknown' as a deliberate
+            # "an editor must categorise this person" flag — update.py's
+            # data-quality check refuses to publish while it is still unknown.
+            (name, slug, (wiki_title or name).replace(" ", "_"), "unknown", "global"))
     for pid, _, _ in relegate:
         con.execute("update persons set active=0 where id=?", (pid,))
     con.commit()

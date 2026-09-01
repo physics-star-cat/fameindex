@@ -142,6 +142,20 @@ def check_data_quality(period: str, roster: int) -> list[str]:
     for _title, count, names in dupes:
         problems.append(f"duplicate person: {names} ({count} rows, same article)")
 
+    # Placeholder metadata must not reach the live site. roster.py seeds a
+    # freshly-promoted person with category "unknown" so an editor categorises
+    # them deliberately; if that never happened the person page renders
+    # "Name — unknown" and they fall out of every category/region page. Block
+    # publish until it is filled in. (Sonam Wangchuk shipped at #2 as
+    # "— unknown" this way.) Valid regions mirror generate.py PAGE_REGIONS.
+    VALID_REGIONS = {"global", "us", "uk", "eu", "asia"}
+    for pid, name, cat, region in con.execute(
+            "select id, name, category, region from persons where active=1"):
+        if not cat or cat == "unknown":
+            problems.append(f"{name} (id {pid}): category is unset/'unknown' — categorise before publishing")
+        if region not in VALID_REGIONS:
+            problems.append(f"{name} (id {pid}): region '{region}' is not one of {sorted(VALID_REGIONS)}")
+
     con.close()
     return problems
 
