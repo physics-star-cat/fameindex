@@ -583,12 +583,23 @@ def build_blog_page(week: str) -> str:
     )
 
 
+def _period_start(period: str):
+    """First day of a period ID ("2026-M09" or legacy "2026-W13") as a date, for sorting."""
+    import datetime as _dt
+    m = re.match(r"^(\d{4})-([MW])(\d{2})$", period or "")
+    if not m:
+        return _dt.date.min
+    y, kind, n = int(m.group(1)), m.group(2), int(m.group(3))
+    return _dt.date(y, n, 1) if kind == "M" else _dt.date.fromisocalendar(y, n, 1)
+
+
 def build_blog_index() -> str:
     """Generate the blog index page listing all published posts."""
     env = _get_env()
     template = env.get_template("blog_index.html")
 
-    posts = get_all_blog_posts()
+    # Newest first by real date: as strings "2026-W13" sorts after "2026-M09".
+    posts = sorted(get_all_blog_posts(), key=lambda p: _period_start(p.week), reverse=True)
     post_list = [
         {"week": p.week, "title": post_meta(p.week, p.title, p.content)["title"],
          "period_label": period_human(p.week)}
@@ -640,12 +651,12 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
 
     urls = []
 
-    # Homepage — highest priority, changes weekly
-    urls.append(_sitemap_url("/", today, "weekly", "1.0"))
+    # Homepage — highest priority, changes monthly
+    urls.append(_sitemap_url("/", today, "monthly", "1.0"))
 
     # Category pages
     for category in PAGE_CATEGORIES:
-        urls.append(_sitemap_url(f"/category/{category}", today, "weekly", "0.8"))
+        urls.append(_sitemap_url(f"/category/{category}", today, "monthly", "0.8"))
 
     # Methodology page
     urls.append(_sitemap_url("/methodology", today, "monthly", "0.7"))
@@ -655,20 +666,20 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
     for region in PAGE_REGIONS:
         if region == "global":
             continue
-        urls.append(_sitemap_url(f"/region/{region}", today, "weekly", "0.8"))
+        urls.append(_sitemap_url(f"/region/{region}", today, "monthly", "0.8"))
 
-    # Person profiles — change weekly
+    # Person profiles — change monthly
     for person in persons:
-        urls.append(_sitemap_url(f"/person/{person.slug}", today, "weekly", "0.7"))
+        urls.append(_sitemap_url(f"/person/{person.slug}", today, "monthly", "0.7"))
 
     # Week snapshots — don't change once published
     for w in weeks:
         priority = "0.9" if w == week else "0.5"
-        freq = "weekly" if w == week else "never"
+        freq = "monthly" if w == week else "never"
         urls.append(_sitemap_url(period_url(w), today, freq, priority))
 
     # Blog posts
-    urls.append(_sitemap_url("/blog", today, "weekly", "0.6"))
+    urls.append(_sitemap_url("/blog", today, "monthly", "0.6"))
     for post in posts:
         urls.append(_sitemap_url(f"/blog/{post.week}", today, "never", "0.6"))
 
@@ -704,14 +715,14 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
     # llms.txt — structured site summary for AI crawlers
     llms = """# Fame Index
 
-> Weekly fame rankings of public figures, measured by data rather than opinion.
+> Monthly fame rankings of public figures, measured by data rather than opinion.
 
-The Fame Index ranks public figures by measurable attention signals across five dimensions: search interest (Wikipedia + Google Trends), news coverage (GDELT + Google News), social activity (Reddit + YouTube + Wikipedia edits), cultural output (Spotify + TMDB), and institutional recognition (Wikidata awards). Updated weekly with commentary. Currently tracking 120+ people.
+The Fame Index ranks public figures by measurable attention signals across five dimensions: search interest (Wikipedia + Google Trends), news coverage (GDELT + Google News), social activity (Reddit + YouTube + Wikipedia edits), cultural output (Spotify + TMDB), and institutional recognition (Wikidata awards). Updated monthly with commentary. Currently tracking 120+ people.
 
 ## Key Pages
 
 - [This Week's Rankings](https://fameindex.net/): Top 100 public figures ranked by fame score
-- [Methodology](https://fameindex.net/methodology): How the Fame Index measures fame — five dimensions, ten data sources, one weekly score
+- [Methodology](https://fameindex.net/methodology): How the Fame Index measures fame — five dimensions, ten data sources, one monthly score
 - [About](https://fameindex.net/about): Background, data sources, and contact
 
 ## Categories
@@ -735,7 +746,7 @@ The Fame Index ranks public figures by measurable attention signals across five 
 
 ## Blog
 
-- [Weekly Dispatches](https://fameindex.net/blog): Commentary on each week's rankings — who climbed, who fell, and why
+- [Monthly Commentary](https://fameindex.net/blog): Commentary on each month's rankings — who climbed, who fell, and why
 
 ## Citation
 

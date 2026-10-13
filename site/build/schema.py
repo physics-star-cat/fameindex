@@ -33,14 +33,14 @@ def website_schema() -> str:
         "@type": "WebSite",
         "name": "Fame Index",
         "url": SITE_URL,
-        "description": "Weekly fame rankings of public figures, measured by data rather than opinion.",
+        "description": "Monthly fame rankings of public figures, measured by data rather than opinion.",
     }
     org = {
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": "Fame Index",
         "url": SITE_URL,
-        "description": "Weekly fame rankings of public figures, measured by data rather than opinion.",
+        "description": "Monthly fame rankings of public figures, measured by data rather than opinion.",
     }
     return _script_tag(website) + "\n" + _script_tag(org)
 
