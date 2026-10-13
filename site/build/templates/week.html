@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Fame Index — Week {{ week }} Snapshot{% endblock %}
-{% block description %}Who rose, who fell, and who came out of nowhere in week {{ week }}. Full fame rankings backed by real data.{% endblock %}
-{% block canonical %}https://fameindex.net/week/{{ week }}{% endblock %}
-{% block og_title %}Fame Index — Week {{ week }} Snapshot{% endblock %}
-{% block og_description %}Who rose, who fell, and who came out of nowhere in week {{ week }}. Full fame rankings backed by real data.{% endblock %}
-{% block og_url %}https://fameindex.net/week/{{ week }}{% endblock %}
-{% block tw_title %}Fame Index — Week {{ week }} Snapshot{% endblock %}
-{% block tw_description %}Who rose, who fell, and who came out of nowhere in week {{ week }}. Full fame rankings backed by real data.{% endblock %}
+{% block title %}Who Was Most Famous in {{ week|period_long }}? Full League Table{% endblock %}
+{% block description %}The full fame league table for {{ week|period_long }}: who rose, who fell and who came out of nowhere, ranked by search, social, news and Wikipedia data.{% endblock %}
+{% block canonical %}https://fameindex.net{{ week|period_href }}{% endblock %}
+{% block og_title %}Who Was Most Famous in {{ week|period_long }}? Full League Table{% endblock %}
+{% block og_description %}The full fame league table for {{ week|period_long }}: who rose, who fell and who came out of nowhere, ranked by search, social, news and Wikipedia data.{% endblock %}
+{% block og_url %}https://fameindex.net{{ week|period_href }}{% endblock %}
+{% block tw_title %}Who Was Most Famous in {{ week|period_long }}? Full League Table{% endblock %}
+{% block tw_description %}The full fame league table for {{ week|period_long }}: who rose, who fell and who came out of nowhere, ranked by search, social, news and Wikipedia data.{% endblock %}
 
-{% block timestamp %}Week {{ week }}{% endblock %}
+{% block timestamp %}{{ week|period_long }}{% endblock %}
 
 {% block content %}
 <section class="week-snapshot">
-    <h2>WEEK {{ week }}</h2>
+    <h2>{{ week|period_long|upper }}</h2>
 
     <div class="week-highlights">
         <div class="highlight">
@@ -35,10 +35,10 @@
 
     <div class="week-nav">
         {% if previous_week %}
-        <a href="/week/{{ previous_week }}">◄ Week {{ previous_week }}</a>
+        <a href="{{ previous_week|period_href }}">◄ {{ previous_week|period_long }}</a>
         {% endif %}
         {% if next_week %}
-        <a href="/week/{{ next_week }}">Week {{ next_week }} ►</a>
+        <a href="{{ next_week|period_href }}">{{ next_week|period_long }} ►</a>
         {% endif %}
     </div>
 </section>

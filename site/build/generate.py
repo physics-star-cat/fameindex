@@ -74,6 +74,14 @@ PAGE_REGIONS = {
     "eu": 123,
     "asia": 124,
 }
+# How a region reads inside a sentence/title: "Most Famous People in the US".
+REGION_NAMES = {
+    "global": "the World",
+    "us": "the US",
+    "uk": "the UK",
+    "eu": "the EU",
+    "asia": "Asia",
+}
 PAGE_PERSON_BASE = 200
 PAGE_WEEK_BASE = 300
 PAGE_BLOG_BASE = 400
@@ -126,7 +134,36 @@ def _get_env() -> Environment:
     # Templates show 'Jul-2026' while URLs and IDs stay '2026-M07'.
     from server.data.week_utils import format_period
     env.filters['period_label'] = format_period
+    # Search titles need the month spelled out ("September 2026"), and links
+    # must use the folder the page is actually written to (/month/, not /week/).
+    env.filters['period_long'] = period_long
+    env.filters['period_href'] = lambda p: period_url(p).rstrip("/")
     return env
+
+
+_MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July",
+                "August", "September", "October", "November", "December"]
+
+
+TITLE_MAX = 60
+
+
+def _fit(title: str, short: str) -> str:
+    """Use the full title if it fits a search result, else the short form."""
+    return title if len(title) <= TITLE_MAX else short
+
+
+def period_long(period: str) -> str:
+    """'2026-M09' -> 'September 2026'; legacy '2026-W13' -> 'Week 2026-W13'."""
+    if period and "-M" in period:
+        year_str, m_str = period.split("-M", 1)
+        try:
+            return f"{_MONTH_NAMES[int(m_str) - 1]} {year_str}"
+        except (ValueError, IndexError):
+            return period
+    if period and "-W" in period:
+        return f"Week {period}"
+    return period
 
 
 def _write_page(path: str, html: str) -> None:
@@ -219,10 +256,15 @@ def build_site(week: str) -> None:
     _write_page(period_path(week), week_html)
 
     # Build person profile pages
-    persons = get_all_persons(active_only=True)
-    for i, person in enumerate(persons):
+    # People promoted to the roster after the last scored month have no scores
+    # yet; writing their page produced a 0-byte index.html listed in the sitemap.
+    persons = []
+    for i, person in enumerate(get_all_persons(active_only=True)):
         person_html = build_person_page(person.id, page_num=PAGE_PERSON_BASE + (i % 100))
+        if not person_html:
+            continue
         _write_page(f"person/{person.slug}/index.html", person_html)
+        persons.append(person)
 
     # Build blog index and individual post pages
     posts = get_all_blog_posts()
@@ -268,12 +310,20 @@ def build_ranking_page(week: str) -> str:
     rankings = _build_rankings_data(week)[:100]
     schema = ranking_schema(rankings, week)
 
+    month = period_long(week)
     return template.render(
         week=week,
         rankings=rankings,
         ranking_schema=schema,
         site_schema=website_schema(),
         page_number=PAGE_HOME,
+        page_title=f"Who's Most Famous? Monthly League Table, {month}",
+        page_description=(
+            "A monthly league table of the world's most famous people, ranked "
+            "by real data: search volume, social buzz, news coverage and "
+            "Wikipedia traffic."
+        ),
+        canonical_path="/",
     )
 
 
@@ -302,6 +352,17 @@ def build_category_page(week: str, category: str) -> str:
         page_number=page_num,
         filter_label=category.title(),
         filter_type="category",
+        filter_slug=category,
+        page_title=_fit(
+            f"Most Famous {CATEGORY_PLURALS.get(category, category + 's').title()}: {period_long(week)} League Table",
+            f"Most Famous {CATEGORY_PLURALS.get(category, category + 's').title()}, {period_long(week)}",
+        ),
+        page_description=(
+            f"The {period_long(week)} league table of the most famous "
+            f"{CATEGORY_PLURALS.get(category, category + 's')}, ranked by search "
+            "volume, social buzz and news coverage. Updated monthly."
+        ),
+        canonical_path=f"/category/{category}",
         filter_label_plural=CATEGORY_PLURALS.get(category, category.title() + "s"),
     )
 
@@ -329,6 +390,19 @@ def build_region_page(week: str, region: str) -> str:
         page_number=page_num,
         filter_label=region.upper(),
         filter_type="region",
+        filter_slug=region,
+        region_name=REGION_NAMES.get(region, region.upper()),
+        page_title=_fit(
+            f"Most Famous People in {REGION_NAMES.get(region, region.upper())}: {period_long(week)} League Table",
+            f"Most Famous People in {REGION_NAMES.get(region, region.upper())}, {period_long(week)}",
+        ),
+        page_description=(
+            f"Who's the most famous person in {REGION_NAMES.get(region, region.upper())}? "
+            f"The {period_long(week)} league table, ranked by search volume, "
+            "social buzz, news coverage and Wikipedia traffic."
+        ),
+        # The global region duplicates the homepage, which is its canonical.
+        canonical_path="/" if region == "global" else f"/region/{region}",
     )
 
 
@@ -345,7 +419,12 @@ def build_person_page(person_id: int, page_num: int = PAGE_PERSON_BASE) -> str:
     env = _get_env()
     template = env.get_template("person.html")
 
-    history = get_person_history(person_id, num_weeks=12)
+    # Legacy weekly rows ("2026-W13") sort after monthly ones ("2026-M09") as
+    # strings, so a plain DESC put a March week at the top and the profile
+    # showed stale stats. Rank on monthly periods whenever the person has any.
+    history = get_person_history(person_id, num_weeks=36)
+    monthly = [sc for sc in history if "-M" in sc.week]
+    history = (monthly or history)[:12]
     if not history:
         return ""
 
@@ -371,10 +450,25 @@ def build_person_page(person_id: int, page_num: int = PAGE_PERSON_BASE) -> str:
 
     schema = person_schema(person_data)
 
+    # The month this profile's latest score covers — never the calendar month.
+    month = period_long(latest.week)
+    name = person_data["name"]
+    description = (
+        f"{name}'s fame rank for {month} and whether they're more or less "
+        "famous than last month, from search, social, news and Wikipedia data."
+    )
+    if len(description) > 155:
+        description = (
+            f"{name}'s fame rank for {month} and whether they're more or less "
+            "famous than last month."
+        )
+
     return template.render(
         person=person_data,
         person_schema=schema,
         page_number=page_num,
+        page_title=f"{name}: Fame Rank and Trend, {month}",
+        page_description=description,
     )
 
 

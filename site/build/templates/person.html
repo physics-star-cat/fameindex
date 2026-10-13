@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}{{ person.name }} — Fame Index Profile{% endblock %}
-{% block description %}Is {{ person.name }} more or less famous than last week? Track their fame score, biggest spikes, and how they rank against everyone else.{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block description %}{{ page_description }}{% endblock %}
 {% block canonical %}https://fameindex.net/person/{{ person.slug }}{% endblock %}
-{% block og_title %}{{ person.name }} — Fame Index Profile{% endblock %}
-{% block og_description %}Is {{ person.name }} more or less famous than last week? Track their fame score, biggest spikes, and how they rank against everyone else.{% endblock %}
+{% block og_title %}{{ page_title }}{% endblock %}
+{% block og_description %}{{ page_description }}{% endblock %}
 {% block og_url %}https://fameindex.net/person/{{ person.slug }}{% endblock %}
 {% block og_type %}profile{% endblock %}
-{% block tw_title %}{{ person.name }} — Fame Index Profile{% endblock %}
-{% block tw_description %}Is {{ person.name }} more or less famous than last week? Track their fame score, biggest spikes, and how they rank against everyone else.{% endblock %}
+{% block tw_title %}{{ page_title }}{% endblock %}
+{% block tw_description %}{{ page_description }}{% endblock %}
 
 {% block schema %}
 {{ person_schema|safe }}
@@ -53,7 +53,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>WEEK</th>
+                    <th>MONTH</th>
                     <th>SCORE</th>
                     <th>RANK</th>
                 </tr>
@@ -61,7 +61,7 @@
             <tbody>
                 {% for week in person.history %}
                 <tr>
-                    <td><a href="/week/{{ week.week }}">{{ week.week }}</a></td>
+                    <td><a href="{{ week.week|period_href }}">{{ week.week|period_label }}</a></td>
                     <td>{{ week.score }}</td>
                     <td>#{{ week.rank }}</td>
                 </tr>

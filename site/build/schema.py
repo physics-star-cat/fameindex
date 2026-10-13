@@ -92,13 +92,28 @@ def ranking_schema(rankings: list, week: str) -> str:
     data = {
         "@context": "https://schema.org",
         "@type": "ItemList",
-        "name": f"Fame Index — Week {week} Rankings",
-        "description": f"Weekly fame rankings for week {week}.",
-        "url": f"{SITE_URL}/week/{week}",
+        "name": f"Fame Index — {_period_name(week)} League Table",
+        "description": f"Monthly fame league table for {_period_name(week)}.",
+        "url": f"{SITE_URL}/{'month' if '-M' in week else 'quarter' if '-Q' in week else 'week'}/{week}",
         "numberOfItems": len(items),
         "itemListElement": items,
     }
     return _script_tag(data)
+
+
+_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December"]
+
+
+def _period_name(period: str) -> str:
+    """'2026-M09' -> 'September 2026'; other periods unchanged."""
+    if "-M" in period:
+        y, m = period.split("-M", 1)
+        try:
+            return f"{_MONTHS[int(m) - 1]} {y}"
+        except (ValueError, IndexError):
+            pass
+    return period
 
 
 def blog_post_schema(post: dict) -> str:
