@@ -207,8 +207,36 @@ class TestBuildBlogPage:
         mock_all.return_value = [post]
 
         html = build_blog_page("2026-W04")
-        assert "Alice Reigns" in html
         assert "Alice holds the top spot" in html
+        # Legacy stored titles are re-rendered outcome-first with a human date.
+        assert "<title>Alice Tops the Fame Index, Week of 19 January 2026</title>" in html
+        assert "2026-W04:" not in html
+
+    @patch("site_build_generate.get_all_blog_posts")
+    @patch("site_build_generate.get_blog_post")
+    def test_monthly_post_title_and_description(self, mock_post, mock_all):
+        post = MagicMock()
+        post.title = "Fame Index — 2026-M09: Ed Sheeran Reigns, Olaf Scholz Ascends"
+        post.content = (
+            "<h3>Number One</h3>\n<p>Ed Sheeran (82).</p>\n"
+            "<h3>Biggest Climbers</h3>\n<ul>\n<li>Olaf Scholz up 26.</li>\n</ul>\n"
+            "<h3>Fastest Fallers</h3>\n<ul>\n<li>Ana de Armas down 17.</li>\n</ul>"
+        )
+        post.week = "2026-M09"
+        mock_post.return_value = post
+        mock_all.return_value = [post]
+
+        html = build_blog_page("2026-M09")
+        import re
+        title = re.search(r"<title>(.*?)</title>", html).group(1)
+        desc = re.search(r'<meta name="description" content="(.*?)">', html).group(1)
+        assert title == "Ed Sheeran Tops the Fame Index, September 2026"
+        assert len(title) <= 60
+        assert desc.startswith("Ed Sheeran is No. 1 in the Fame Index for September 2026.")
+        assert "Olaf Scholz" in desc and "Ana de Armas" in desc
+        assert len(desc) <= 155
+        assert "2026-M09" not in title + desc
+        assert '<link rel="canonical" href="https://fameindex.net/blog/2026-M09">' in html
 
     @patch("site_build_generate.get_blog_post")
     def test_no_post_returns_empty(self, mock_post):
@@ -268,3 +296,23 @@ class TestPeriodPathsAgree:
         assert period_folder("2026-M07") == "month"
         assert period_folder("2026-Q2") == "quarter"
         assert period_folder("2026-W13") == "week"
+
+
+class TestSitemapMatchesCanonical:
+    """
+    vercel.json sets trailingSlash: false, so a slashed sitemap URL is a
+    redirect. Every sitemap URL must be the canonical, slash-free form.
+    """
+
+    def test_no_trailing_slashes(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(generate_mod, "OUTPUT_DIR", str(tmp_path))
+        person = MagicMock(); person.slug = "alice"
+        post = MagicMock(); post.week = "2026-M09"
+        generate_mod.build_sitemap("2026-M09", [person], [post], ["2026-M09", "2026-W13"])
+        import re
+        locs = re.findall(r"<loc>(.*?)</loc>", (tmp_path / "sitemap.xml").read_text())
+        assert "https://fameindex.net/" in locs  # the root keeps its slash
+        assert "https://fameindex.net/month/2026-M09" in locs
+        assert "https://fameindex.net/person/alice" in locs
+        assert "https://fameindex.net/blog/2026-M09" in locs
+        assert [u for u in locs if u.endswith("/") and u != "https://fameindex.net/"] == []

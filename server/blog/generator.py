@@ -13,11 +13,12 @@ Posts are structured around:
 """
 
 import random
+import re
 
 from server.blog.reasons import describe_move
 from server.db.queries import get_scores_for_week, store_blog_post
 from server.scoring.momentum import biggest_movers
-from server.data.week_utils import previous_period
+from server.data.week_utils import previous_period, period_to_dates
 
 
 # Category-aware commentary templates
@@ -161,6 +162,136 @@ _GENERIC_HOLDS = "{name} stays at number one ({score:.0f}). Immovable."
 _GENERIC_NEW_TOP = "{name} takes number one ({score:.0f}). A new era, possibly brief."
 
 
+# ---------------------------------------------------------------------------
+# Search titles and descriptions
+# ---------------------------------------------------------------------------
+# Owner's rule: the title tells the searcher what they get. Outcome first, brand
+# last, month spelled out ("September 2026", never "2026-M09"). Titles must fit
+# a search result (~60 chars), descriptions 155.
+
+TITLE_MAX = 60
+DESCRIPTION_MAX = 155
+
+_MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July",
+                "August", "September", "October", "November", "December"]
+
+_CLIMBER_VERBS = {
+    "musician": "Surges", "actor": "Rises", "politician": "Ascends",
+    "athlete": "Storms Up", "business": "Rallies", "creator": "Breaks Through",
+}
+
+
+def period_human(period: str, in_sentence: bool = False) -> str:
+    """
+    '2026-M09' -> 'September 2026'; legacy '2026-W13' -> 'Week of 23 March 2026'
+    ('the week of ...' when it sits mid-sentence). Anything else unchanged.
+    """
+    if period and "-M" in period:
+        year_str, m_str = period.split("-M", 1)
+        try:
+            return f"{_MONTH_NAMES[int(m_str) - 1]} {year_str}"
+        except (ValueError, IndexError):
+            return period
+    if period and "-W" in period:
+        try:
+            start, _ = period_to_dates(period)
+        except ValueError:
+            return period
+        label = f"week of {start.day} {_MONTH_NAMES[start.month - 1]} {start.year}"
+        return f"the {label}" if in_sentence else label[0].upper() + label[1:]
+    return period
+
+
+def post_title(top_name: str, period: str) -> str:
+    """'Ed Sheeran Tops the Fame Index, September 2026' — shortened to fit."""
+    when = period_human(period)
+    for title in (
+        f"{top_name} Tops the Fame Index, {when}",
+        f"{top_name} Is No. 1, {when}",
+        f"{top_name} Tops the Fame Index",
+    ):
+        if len(title) <= TITLE_MAX:
+            return title
+    return f"{top_name} Is No. 1"[:TITLE_MAX]
+
+
+def post_description(top_name: str, period: str,
+                     climber: str | None = None, faller: str | None = None) -> str:
+    """Outcome first: who is number one, then the biggest moves. <=155 chars."""
+    lead = f"{top_name} is No. 1 in the Fame Index for {period_human(period, in_sentence=True)}."
+    moves = []
+    if climber:
+        moves.append(f"Biggest climber: {climber}.")
+    if faller:
+        moves.append(f"Biggest faller: {faller}.")
+    tail = "Who rose, who fell, and why."
+    for parts in ([lead, *moves, tail], [lead, *moves], [lead, *moves[:1]], [lead]):
+        text = " ".join(parts)
+        if len(text) <= DESCRIPTION_MAX:
+            return text
+    return lead[:DESCRIPTION_MAX]
+
+
+# Titles stored before 2026-10-13: "Fame Index — 2026-M09: Ed Sheeran Reigns,
+# Olaf Scholz Ascends" / "Fame Index — Week 2026-W04: The Weeknd Holds the Crown".
+_LEGACY_TITLE = re.compile(
+    r"^Fame Index — (?:Week )?\S+: (?P<top>.+?) "
+    r"(?:Reigns(?:, (?P<climber>.+?) (?:" + "|".join(
+        sorted(set(_CLIMBER_VERBS.values()) | {"Climbs"}, key=len, reverse=True)
+    ) + r"))?|Holds the Crown)$"
+)
+_CURRENT_TITLE = re.compile(r"^(?P<top>.+?) (?:Tops the Fame Index|Is No\. 1)\b")
+
+# One mover line in a stored post. Current posts: "Olaf Scholz up 26 — ...";
+# the early weekly posts used rotating phrasings ("Up 3: BTS.", "Rosalía
+# dropped 15 points.").
+_MOVER_PATTERNS = (
+    re.compile(r"^(?:Up|Down) \d+: (?P<name>.+?)\."),
+    re.compile(r"^(?P<name>.+?) (?:is up|is down|up|down|surged|rose|climbed|"
+               r"fell|dropped) \d+"),
+)
+
+
+def _first_mover(content: str, heading: str, skip: str | None) -> str | None:
+    """Name of the first person listed under a post section, other than skip."""
+    section = re.search(rf"<h3>{heading}</h3>\s*<ul>(.*?)</ul>", content or "", re.S)
+    if not section:
+        return None
+    for item in re.findall(r"<li>(.*?)</li>", section.group(1), re.S):
+        text = re.sub(r"<[^>]+>", "", item).strip()
+        for pattern in _MOVER_PATTERNS:
+            m = pattern.match(text)
+            if m:
+                name = m.group("name").strip()
+                if name != skip:
+                    return name
+                break
+    return None
+
+
+def post_meta(period: str, stored_title: str, content: str) -> dict:
+    """
+    Search title and description for a stored post, whatever style its title
+    was stored in. The render step uses this so that posts written before the
+    title rule changed ship the same style as new ones, without rewriting the
+    database (posts and their URLs are untouched).
+    """
+    legacy = _LEGACY_TITLE.match(stored_title or "")
+    current = None if legacy else _CURRENT_TITLE.match(stored_title or "")
+    match = legacy or current
+    if not match:
+        # Unknown shape: keep the stored title rather than guess at a name.
+        return {"title": stored_title, "description": ""}
+    top = match.group("top")
+    climber = (legacy.group("climber") if legacy else None) or \
+        _first_mover(content, "Biggest Climbers", skip=top)
+    faller = _first_mover(content, "Fastest Fallers", skip=top)
+    return {
+        "title": post_title(top, period) if legacy else stored_title,
+        "description": post_description(top, period, climber, faller),
+    }
+
+
 def _get_category_for_person(person_id: int, scores: list) -> str:
     """Look up a person's category from the scores list."""
     for sc in scores:
@@ -194,9 +325,9 @@ def generate_weekly_post(week: str) -> dict:
     scores = get_scores_for_week(week)
     if not scores:
         return {
-            "title": f"Fame Index — {week}",
-            "content": "<p>No data available for this week.</p>",
-            "summary": f"Fame Index rankings for week {week}.",
+            "title": f"Fame Index, {period_human(week)}",
+            "content": "<p>No data available for this period.</p>",
+            "summary": f"Fame Index rankings for {period_human(week, in_sentence=True)}.",
             "movers": {"climbers": [], "fallers": []},
         }
 
@@ -270,10 +401,13 @@ def generate_weekly_post(week: str) -> dict:
 
     content = "\n\n".join(sections)
 
-    # Build headline
-    headline = _make_headline(top, movers, scores)
-    title = f"Fame Index — {week}: {headline}"
-    summary = f"{top.person.name} leads the Fame Index for {week}."
+    # Search title and description: outcome first, month spelled out. The
+    # climber (never the number one — see _make_headline) goes in the
+    # description, which has room for it.
+    climber = next((c[1] for c in movers["climbers"] if c[0] != top.person_id), None)
+    faller = movers["fallers"][0][1] if movers["fallers"] else None
+    title = post_title(top.person.name, week)
+    summary = post_description(top.person.name, week, climber, faller)
 
     # Store in database
     store_blog_post(week, title, content)
@@ -295,10 +429,6 @@ def _make_headline(top, movers: dict, scores: list) -> str:
     if climbers:
         climber_name = climbers[0][1]
         cat = _get_category_for_person(climbers[0][0], scores)
-        verbs = {
-            "musician": "Surges", "actor": "Rises", "politician": "Ascends",
-            "athlete": "Storms Up", "business": "Rallies", "creator": "Breaks Through",
-        }
-        verb = verbs.get(cat, "Climbs")
+        verb = _CLIMBER_VERBS.get(cat, "Climbs")
         return f"{top.person.name} Reigns, {climber_name} {verb}"
     return f"{top.person.name} Holds the Crown"

@@ -33,6 +33,7 @@ from server.db.queries import (
     get_all_blog_posts,
 )
 from server.data.week_utils import previous_period, period_to_dates
+from server.blog.generator import post_meta, period_human
 from server.scoring.momentum import biggest_movers
 
 # Import schema module from the same directory (avoids 'site' name collision
@@ -120,8 +121,13 @@ def period_path(period: str) -> str:
 
 
 def period_url(period: str) -> str:
-    """Public URL path for a period's ranking page."""
-    return f"/{period_folder(period)}/{period}/"
+    """
+    Public URL path for a period's ranking page.
+
+    No trailing slash: vercel.json sets trailingSlash: false, so a slashed URL
+    is a redirect, and a sitemap of redirects is a sitemap Google discounts.
+    """
+    return f"/{period_folder(period)}/{period}"
 
 
 def _get_env() -> Environment:
@@ -137,7 +143,8 @@ def _get_env() -> Environment:
     # Search titles need the month spelled out ("September 2026"), and links
     # must use the folder the page is actually written to (/month/, not /week/).
     env.filters['period_long'] = period_long
-    env.filters['period_href'] = lambda p: period_url(p).rstrip("/")
+    env.filters['period_href'] = period_url
+    env.filters['period_human'] = period_human
     return env
 
 
@@ -551,12 +558,17 @@ def build_blog_page(week: str) -> str:
                 next_week = post_weeks[i - 1]
             break
 
+    # Title and description are derived at render time, so posts stored with
+    # the old "Fame Index — 2026-M09: ..." titles ship the current style too.
+    meta = post_meta(week, post.title, post.content)
     post_data = {
-        "title": post.title,
+        "title": meta["title"],
         "content": post.content,
         "week": week,
+        "period_label": period_human(week),
         "date": monday.strftime("%Y-%m-%d"),
-        "summary": _strip_html(post.content)[:160] if post.content else "",
+        "summary": meta["description"]
+        or (_strip_html(post.content)[:155] if post.content else ""),
         "previous_week": prev_week,
         "next_week": next_week,
     }
@@ -578,7 +590,8 @@ def build_blog_index() -> str:
 
     posts = get_all_blog_posts()
     post_list = [
-        {"week": p.week, "title": p.title}
+        {"week": p.week, "title": post_meta(p.week, p.title, p.content)["title"],
+         "period_label": period_human(p.week)}
         for p in posts
     ]
 
@@ -632,21 +645,21 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
 
     # Category pages
     for category in PAGE_CATEGORIES:
-        urls.append(_sitemap_url(f"/category/{category}/", today, "weekly", "0.8"))
+        urls.append(_sitemap_url(f"/category/{category}", today, "weekly", "0.8"))
 
     # Methodology page
-    urls.append(_sitemap_url("/methodology/", today, "monthly", "0.7"))
-    urls.append(_sitemap_url("/about/", today, "monthly", "0.5"))
+    urls.append(_sitemap_url("/methodology", today, "monthly", "0.7"))
+    urls.append(_sitemap_url("/about", today, "monthly", "0.5"))
 
     # Region pages (skip "global" — homepage serves as global ranking)
     for region in PAGE_REGIONS:
         if region == "global":
             continue
-        urls.append(_sitemap_url(f"/region/{region}/", today, "weekly", "0.8"))
+        urls.append(_sitemap_url(f"/region/{region}", today, "weekly", "0.8"))
 
     # Person profiles — change weekly
     for person in persons:
-        urls.append(_sitemap_url(f"/person/{person.slug}/", today, "weekly", "0.7"))
+        urls.append(_sitemap_url(f"/person/{person.slug}", today, "weekly", "0.7"))
 
     # Week snapshots — don't change once published
     for w in weeks:
@@ -655,9 +668,9 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
         urls.append(_sitemap_url(period_url(w), today, freq, priority))
 
     # Blog posts
-    urls.append(_sitemap_url("/blog/", today, "weekly", "0.6"))
+    urls.append(_sitemap_url("/blog", today, "weekly", "0.6"))
     for post in posts:
-        urls.append(_sitemap_url(f"/blog/{post.week}/", today, "never", "0.6"))
+        urls.append(_sitemap_url(f"/blog/{post.week}", today, "never", "0.6"))
 
     # Build XML
     xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
@@ -698,17 +711,17 @@ The Fame Index ranks public figures by measurable attention signals across five 
 ## Key Pages
 
 - [This Week's Rankings](https://fameindex.net/): Top 100 public figures ranked by fame score
-- [Methodology](https://fameindex.net/methodology/): How the Fame Index measures fame — five dimensions, ten data sources, one weekly score
-- [About](https://fameindex.net/about/): Background, data sources, and contact
+- [Methodology](https://fameindex.net/methodology): How the Fame Index measures fame — five dimensions, ten data sources, one weekly score
+- [About](https://fameindex.net/about): Background, data sources, and contact
 
 ## Categories
 
-- [Musicians](https://fameindex.net/category/musician/): Pop, rock, hip-hop, and other recording artists
-- [Actors](https://fameindex.net/category/actor/): Film and television performers
-- [Athletes](https://fameindex.net/category/athlete/): Professional sports figures
-- [Politicians](https://fameindex.net/category/politician/): Political leaders and public officials
-- [Business](https://fameindex.net/category/business/): Business leaders and entrepreneurs
-- [Creators](https://fameindex.net/category/creator/): Digital creators and influencers
+- [Musicians](https://fameindex.net/category/musician): Pop, rock, hip-hop, and other recording artists
+- [Actors](https://fameindex.net/category/actor): Film and television performers
+- [Athletes](https://fameindex.net/category/athlete): Professional sports figures
+- [Politicians](https://fameindex.net/category/politician): Political leaders and public officials
+- [Business](https://fameindex.net/category/business): Business leaders and entrepreneurs
+- [Creators](https://fameindex.net/category/creator): Digital creators and influencers
 
 ## Scoring Dimensions
 
@@ -722,7 +735,7 @@ The Fame Index ranks public figures by measurable attention signals across five 
 
 ## Blog
 
-- [Weekly Dispatches](https://fameindex.net/blog/): Commentary on each week's rankings — who climbed, who fell, and why
+- [Weekly Dispatches](https://fameindex.net/blog): Commentary on each week's rankings — who climbed, who fell, and why
 
 ## Citation
 

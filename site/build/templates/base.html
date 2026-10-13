@@ -45,7 +45,7 @@
                 <ul>
                     {% for p in all_periods %}
                     <li>
-                        <a href="/month/{{ p }}/"{% if p == current_period %} class="is-current" aria-current="page"{% endif %}>
+                        <a href="/month/{{ p }}"{% if p == current_period %} class="is-current" aria-current="page"{% endif %}>
                             {{ p|period_label }}{% if p == current_period %} &#9679;{% endif %}
                         </a>
                     </li>
@@ -61,14 +61,14 @@
     <nav class="teletext-nav">
         <a href="/">Overall</a>
         {% block subnav %}
-        <a href="/category/musician/">Music</a>
-        <a href="/category/actor/">Film/TV</a>
-        <a href="/category/athlete/">Sport</a>
-        <a href="/category/politician/">Politics</a>
+        <a href="/category/musician">Music</a>
+        <a href="/category/actor">Film/TV</a>
+        <a href="/category/athlete">Sport</a>
+        <a href="/category/politician">Politics</a>
         {% endblock %}
-        <a href="/blog/">Blog</a>
-        <a href="/methodology/">How It Works</a>
-        <a href="/about/">About</a>
+        <a href="/blog">Blog</a>
+        <a href="/methodology">How It Works</a>
+        <a href="/about">About</a>
     </nav>
 
     <main class="teletext-content">

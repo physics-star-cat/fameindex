@@ -145,3 +145,40 @@ class TestRosterDeduplication:
         # genuinely different people must stay distinct
         assert m._norm("Mike Johnson") != m._norm("Boris Johnson")
         assert m._norm("Giorgia Meloni") != m._norm("Christopher Meloni")
+
+
+class TestPostTitles:
+    """Titles lead with the outcome, spell the month out, and fit a search result."""
+
+    def test_monthly_title(self):
+        from server.blog.generator import post_title
+        assert post_title("Ed Sheeran", "2026-M09") == "Ed Sheeran Tops the Fame Index, September 2026"
+
+    def test_long_name_still_fits(self):
+        from server.blog.generator import post_title
+        title = post_title("Alexandria Ocasio-Cortez the Magnificent", "2026-M09")
+        assert len(title) <= 60
+        assert "2026-M" not in title
+
+    def test_description_fits_and_leads_with_outcome(self):
+        from server.blog.generator import post_description
+        desc = post_description("Ed Sheeran", "2026-M09", "Olaf Scholz", "Ana de Armas")
+        assert desc.startswith("Ed Sheeran is No. 1 in the Fame Index for September 2026.")
+        assert len(desc) <= 155
+
+    def test_legacy_stored_title_is_rewritten(self):
+        from server.blog.generator import post_meta
+        meta = post_meta("2026-M07",
+                         "Fame Index — 2026-M07: Christopher Nolan Reigns, Sonam Wangchuk Climbs",
+                         "<h3>Biggest Climbers</h3>\n<ul>\n<li>Christopher Nolan up 27.</li>\n</ul>")
+        assert meta["title"] == "Christopher Nolan Tops the Fame Index, July 2026"
+        assert "Biggest climber: Sonam Wangchuk." in meta["description"]
+
+    def test_current_stored_title_is_kept(self):
+        from server.blog.generator import post_meta
+        stored = "Ed Sheeran Tops the Fame Index, September 2026"
+        meta = post_meta("2026-M09", stored,
+                         "<h3>Biggest Climbers</h3>\n<ul>\n<li>Ed Sheeran up 26.</li>\n"
+                         "<li>Olaf Scholz up 26.</li>\n</ul>")
+        assert meta["title"] == stored
+        assert "Biggest climber: Olaf Scholz." in meta["description"]

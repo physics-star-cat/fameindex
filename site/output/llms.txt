@@ -7,17 +7,17 @@ The Fame Index ranks public figures by measurable attention signals across five 
 ## Key Pages
 
 - [This Week's Rankings](https://fameindex.net/): Top 100 public figures ranked by fame score
-- [Methodology](https://fameindex.net/methodology/): How the Fame Index measures fame — five dimensions, ten data sources, one weekly score
-- [About](https://fameindex.net/about/): Background, data sources, and contact
+- [Methodology](https://fameindex.net/methodology): How the Fame Index measures fame — five dimensions, ten data sources, one weekly score
+- [About](https://fameindex.net/about): Background, data sources, and contact
 
 ## Categories
 
-- [Musicians](https://fameindex.net/category/musician/): Pop, rock, hip-hop, and other recording artists
-- [Actors](https://fameindex.net/category/actor/): Film and television performers
-- [Athletes](https://fameindex.net/category/athlete/): Professional sports figures
-- [Politicians](https://fameindex.net/category/politician/): Political leaders and public officials
-- [Business](https://fameindex.net/category/business/): Business leaders and entrepreneurs
-- [Creators](https://fameindex.net/category/creator/): Digital creators and influencers
+- [Musicians](https://fameindex.net/category/musician): Pop, rock, hip-hop, and other recording artists
+- [Actors](https://fameindex.net/category/actor): Film and television performers
+- [Athletes](https://fameindex.net/category/athlete): Professional sports figures
+- [Politicians](https://fameindex.net/category/politician): Political leaders and public officials
+- [Business](https://fameindex.net/category/business): Business leaders and entrepreneurs
+- [Creators](https://fameindex.net/category/creator): Digital creators and influencers
 
 ## Scoring Dimensions
 
@@ -31,7 +31,7 @@ The Fame Index ranks public figures by measurable attention signals across five 
 
 ## Blog
 
-- [Weekly Dispatches](https://fameindex.net/blog/): Commentary on each week's rankings — who climbed, who fell, and why
+- [Weekly Dispatches](https://fameindex.net/blog): Commentary on each week's rankings — who climbed, who fell, and why
 
 ## Citation
 
