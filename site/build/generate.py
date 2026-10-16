@@ -633,6 +633,7 @@ def build_about_page() -> str:
 
 
 SITE_URL = "https://fameindex.net"
+INDEXNOW_KEY = "369fad675776cd055a4d7aac1e787e4d"
 
 
 def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
@@ -711,6 +712,10 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
         f"Sitemap: {SITE_URL}/sitemap.xml\n"
     )
     _write_page("robots.txt", robots)
+
+    # IndexNow key file (https://www.indexnow.org/). The key is public by design;
+    # webmon/indexnow_submit.py pings Bing/Yandex/Seznam/Naver with changed URLs.
+    _write_page(f"{INDEXNOW_KEY}.txt", INDEXNOW_KEY + "\n")
 
     # llms.txt — structured site summary for AI crawlers
     llms = """# Fame Index
