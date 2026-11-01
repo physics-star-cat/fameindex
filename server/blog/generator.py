@@ -12,10 +12,13 @@ Posts are structured around:
 - Notable new entries
 """
 
+import json
+import logging
 import random
 import re
+from pathlib import Path
 
-from server.blog.reasons import describe_move
+from server.blog.reasons import describe_move, describe_new_entry
 from server.db.queries import get_scores_for_week, store_blog_post
 from server.scoring.momentum import biggest_movers
 from server.data.week_utils import previous_period, period_to_dates
@@ -147,13 +150,6 @@ _FALLER_TEMPLATES = {
         "{name} dropped {delta:.0f}. Yesterday's viral is today's forgotten.",
     ],
 }
-
-_NEW_ENTRY = [
-    "{name} enters at #{rank}. Welcome to the fishbowl.",
-    "New: {name} at #{rank}. Fame found them this week.",
-    "{name} appears at #{rank}. First time on the index. Won't be the last.",
-    "A new face: {name} at #{rank}. The world noticed.",
-]
 
 # Fallback for unknown categories
 _GENERIC_CLIMBER = "{name} is up {delta:.0f} points. Something happened."
@@ -300,9 +296,30 @@ def _get_category_for_person(person_id: int, scores: list) -> str:
     return "other"
 
 
+NOTES_DIR = Path(__file__).resolve().parents[2] / "data" / "month_notes"
+
+
+def month_notes(period: str) -> dict[str, str]:
+    """
+    Hand-researched reasons for one month, keyed by person's name.
+
+    Signals say what moved, not what happened. Each note states a checked
+    real-world event; data/month_notes/README.md gives the rules.
+    """
+    path = NOTES_DIR / f"{period}.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _mover_line(name: str, direction: str, delta: float, reason: str | None,
+                note: str | None) -> str:
+    line = f"{name} {direction} {delta:.0f}"
+    detail = "; ".join(x for x in (reason, note) if x)
+    return f"{line} — {detail}." if detail else f"{line}."
+
+
 def _commentary(templates: dict, category: str, **kwargs) -> str:
     """Pick a random template for the given category and format it."""
-    pool = templates.get(category, templates.get("musician", []))
+    pool = templates.get(category, [])
     if not pool:
         return ""
     return random.choice(pool).format(**kwargs)
@@ -336,6 +353,7 @@ def generate_weekly_post(week: str) -> dict:
     prev_top = prev_scores[0].person_id if prev_scores else None
 
     movers = biggest_movers(week, n=5)
+    notes = month_notes(week)
     sections = []
 
     # --- Number One ---
@@ -351,6 +369,9 @@ def generate_weekly_post(week: str) -> dict:
         commentary = _commentary(templates, cat, name=top.person.name, score=top.fame_score)
         if not commentary:
             commentary = _GENERIC_NEW_TOP.format(name=top.person.name, score=top.fame_score)
+    if notes.get(top.person.name):
+        note = notes[top.person.name]
+        commentary += f" {note[0].upper()}{note[1:]}."
     sections.append(f"<h3>Number One</h3>\n<p>{commentary}</p>")
 
     # --- Biggest Climbers ---
@@ -363,10 +384,7 @@ def generate_weekly_post(week: str) -> dict:
             # reaching for a stock line — that is how the old generator ended up
             # attributing the same phrase to two different people in one post.
             reason = describe_move(pid, week, prev_week, rising=True)
-            line = f"{name} up {delta:.0f}"
-            if reason:
-                line += f" — {reason}"
-            line += "."
+            line = _mover_line(name, "up", delta, reason, notes.get(name))
             climber_lines.append(f"<li>{line}</li>")
         climbers_html = "<ul>\n" + "\n".join(climber_lines) + "\n</ul>"
         sections.append(f"<h3>Biggest Climbers</h3>\n{climbers_html}")
@@ -377,10 +395,7 @@ def generate_weekly_post(week: str) -> dict:
         for pid, name, momentum in movers["fallers"][:3]:
             delta = abs(momentum)
             reason = describe_move(pid, week, prev_week, rising=False)
-            line = f"{name} down {delta:.0f}"
-            if reason:
-                line += f" — {reason}"
-            line += "."
+            line = _mover_line(name, "down", delta, reason, notes.get(name))
             faller_lines.append(f"<li>{line}</li>")
         fallers_html = "<ul>\n" + "\n".join(faller_lines) + "\n</ul>"
         sections.append(f"<h3>Fastest Fallers</h3>\n{fallers_html}")
@@ -393,11 +408,20 @@ def generate_weekly_post(week: str) -> dict:
     ]
     if new_entries:
         entry_lines = []
-        for sc in new_entries[:5]:
-            line = random.choice(_NEW_ENTRY).format(name=sc.person.name, rank=sc.rank)
+        for sc in new_entries:
+            # New to our table, not new to fame: someone can be famous for years
+            # before joining. Say why they are here, never that fame just found them.
+            reason = notes.get(sc.person.name) or describe_new_entry(
+                sc.person_id, (week, period_human(week, in_sentence=True)))
+            if not notes.get(sc.person.name):
+                logging.getLogger(__name__).warning(
+                    "new entry %s has no written reason in data/month_notes/%s.json",
+                    sc.person.name, week)
+            line = f"{sc.person.name} joins the table at #{sc.rank}"
+            line += f": {reason}." if reason else "."
             entry_lines.append(f"<li>{line}</li>")
         entries_html = "<ul>\n" + "\n".join(entry_lines) + "\n</ul>"
-        sections.append(f"<h3>New Entries</h3>\n{entries_html}")
+        sections.append(f"<h3>New to the Table</h3>\n{entries_html}")
 
     content = "\n\n".join(sections)
 

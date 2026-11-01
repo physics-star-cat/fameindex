@@ -61,6 +61,7 @@ fi
 
 # ---------------------------------------------------------------------------
 # 2. Collect, score, check, publish
+# Reasons for new entries and big movers: data/month_notes/README.md
 # ---------------------------------------------------------------------------
 # update.py refuses to publish if coverage is thin or if people have differing
 # dimension coverage — the latter means they would be ranked under different
@@ -76,7 +77,8 @@ if ! $PY scripts/update.py --period "$PERIOD" $DRY; then
     echo "Update failed or was refused. Common fixes:"
     echo "  gaps in coverage   .venv/bin/python scripts/fill_gaps.py $PERIOD"
     echo "  news mismatches    .venv/bin/python scripts/refresh_news.py $PERIOD"
-    echo "  then re-run        ./monthly.sh --period $PERIOD"
+    echo "  then rescore       .venv/bin/python -c \"from server.scoring.engine import score_all; from server.db.queries import store_scores; store_scores(score_all('$PERIOD'))\""
+    echo "  and publish        .venv/bin/python scripts/update.py --period $PERIOD --skip-collect"
     exit 1
 fi
 

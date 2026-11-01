@@ -59,6 +59,8 @@ PAGE_CATEGORIES = {
     "politician": 113,
     "business": 114,
     "creator": 115,
+    "royal": 116,
+    "other": 117,
 }
 CATEGORY_PLURALS = {
     "musician": "musicians",
@@ -67,6 +69,8 @@ CATEGORY_PLURALS = {
     "politician": "politicians",
     "business": "business leaders",
     "creator": "creators",
+    "royal": "royals",
+    "other": "other public figures",
 }
 PAGE_REGIONS = {
     "global": 120,
@@ -74,6 +78,7 @@ PAGE_REGIONS = {
     "uk": 122,
     "eu": 123,
     "asia": 124,
+    "canada": 125,
 }
 # How a region reads inside a sentence/title: "Most Famous People in the US".
 REGION_NAMES = {
@@ -82,7 +87,22 @@ REGION_NAMES = {
     "uk": "the UK",
     "eu": "the EU",
     "asia": "Asia",
+    "canada": "Canada",
 }
+# A league table of one or two is not a league table: keep such pages out of
+# search and the sitemap until they fill up.
+MIN_TABLE_SIZE = 3
+_THIN_PAGES: set[str] = set()
+
+
+def _mark_thin(path: str, rankings: list) -> bool:
+    if len(rankings) < MIN_TABLE_SIZE:
+        _THIN_PAGES.add(path)
+        return True
+    _THIN_PAGES.discard(path)
+    return False
+
+
 PAGE_PERSON_BASE = 200
 PAGE_WEEK_BASE = 300
 PAGE_BLOG_BASE = 400
@@ -358,6 +378,7 @@ def build_category_page(week: str, category: str) -> str:
         ranking_schema=schema,
         page_number=page_num,
         filter_label=category.title(),
+        noindex=_mark_thin(f"/category/{category}", rankings),
         filter_type="category",
         filter_slug=category,
         page_title=_fit(
@@ -399,6 +420,7 @@ def build_region_page(week: str, region: str) -> str:
         filter_type="region",
         filter_slug=region,
         region_name=REGION_NAMES.get(region, region.upper()),
+        noindex=_mark_thin(f"/region/{region}", rankings),
         page_title=_fit(
             f"Most Famous People in {REGION_NAMES.get(region, region.upper())}: {period_long(week)} League Table",
             f"Most Famous People in {REGION_NAMES.get(region, region.upper())}, {period_long(week)}",
@@ -657,7 +679,8 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
 
     # Category pages
     for category in PAGE_CATEGORIES:
-        urls.append(_sitemap_url(f"/category/{category}", today, "monthly", "0.8"))
+        if f"/category/{category}" not in _THIN_PAGES:
+            urls.append(_sitemap_url(f"/category/{category}", today, "monthly", "0.8"))
 
     # Methodology page
     urls.append(_sitemap_url("/methodology", today, "monthly", "0.7"))
@@ -667,7 +690,8 @@ def build_sitemap(week: str, persons: list, posts: list, weeks: list) -> None:
     for region in PAGE_REGIONS:
         if region == "global":
             continue
-        urls.append(_sitemap_url(f"/region/{region}", today, "monthly", "0.8"))
+        if f"/region/{region}" not in _THIN_PAGES:
+            urls.append(_sitemap_url(f"/region/{region}", today, "monthly", "0.8"))
 
     # Person profiles — change monthly
     for person in persons:

@@ -6,6 +6,7 @@
     <title>{% block title %}Fame Index{% endblock %}</title>
     <meta name="description" content="{% block description %}Monthly fame rankings powered by data.{% endblock %}">
     <link rel="canonical" href="{% block canonical %}https://fameindex.net{% endblock %}">
+    {% if noindex %}<meta name="robots" content="noindex">{% endif %}
 
     <!-- Open Graph -->
     <meta property="og:title" content="{% block og_title %}Fame Index{% endblock %}">

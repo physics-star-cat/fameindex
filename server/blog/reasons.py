@@ -73,7 +73,8 @@ def _signals_by_source(person_id: int, period: str) -> dict[str, float]:
     return out
 
 
-def biggest_mover(person_id: int, period: str, previous_period: str) -> dict | None:
+def biggest_mover(person_id: int, period: str, previous_period: str,
+                  rising: bool | None = None) -> dict | None:
     """
     Find the signal that moved most for a person between two periods.
 
@@ -81,6 +82,9 @@ def biggest_mover(person_id: int, period: str, previous_period: str) -> dict | N
     nothing moved enough to be worth mentioning. Signals absent from either
     period are skipped — a signal we could not collect is not evidence of a
     change, and inventing one is exactly the failure this module exists to fix.
+
+    Pass rising to consider only signals moving the same way as the person. A
+    fall can't explain a climb: "Keanu Reeves up 13 — Wikipedia traffic slipped".
     """
     now = _signals_by_source(person_id, period)
     before = _signals_by_source(person_id, previous_period)
@@ -93,6 +97,8 @@ def biggest_mover(person_id: int, period: str, previous_period: str) -> dict | N
         if prior is None or prior <= 0 or current <= 0:
             continue
         ratio = current / prior
+        if rising is not None and (ratio > 1) != rising:
+            continue
         distance = max(ratio, 1 / ratio)
         if distance < _MIN_INTERESTING_RATIO:
             continue
@@ -107,6 +113,39 @@ def biggest_mover(person_id: int, period: str, previous_period: str) -> dict | N
     return best
 
 
+def _edit_activity_reason(person_id: int, period: str, previous_period: str,
+                          rising: bool) -> str | None:
+    """
+    Edit activity, when no ordinary signal moved the person's way.
+
+    The edit rate can't be quoted as "edits tripled" (see _RATE_SIGNALS), but it
+    feeds the score, so it can be the true cause of a move. Say so in plain terms.
+    """
+    now = _signals_by_source(person_id, period).get("wiki_edit_velocity")
+    before = _signals_by_source(person_id, previous_period).get("wiki_edit_velocity")
+    if not now or not before:
+        return None
+    if rising and now / before >= 3:
+        return "a burst of edits to their Wikipedia page"
+    if not rising and now / before <= 1 / 3:
+        return "edits to their Wikipedia page dried up"
+    return None
+
+
+def describe_new_entry(person_id: int, period_label: tuple[str, str]) -> str | None:
+    """A measured reason for a new entry, from their own signals this period."""
+    sigs = _signals_by_source(person_id, period_label[0])
+    views, news = sigs.get("wikipedia_pageviews"), sigs.get("gdelt_count")
+    if not views and not news:
+        return None
+    parts = []
+    if news:
+        parts.append(f"{news:,.0f} news mentions")
+    if views:
+        parts.append(f"{views:,.0f} Wikipedia views")
+    return f"{' and '.join(parts)} in {period_label[1]}"
+
+
 def describe_move(person_id: int, period: str, previous_period: str,
                   rising: bool) -> str | None:
     """
@@ -117,9 +156,9 @@ def describe_move(person_id: int, period: str, previous_period: str,
     which is how "The streaming numbers don't lie" ended up attached to two
     different people in the same post.
     """
-    mover = biggest_mover(person_id, period, previous_period)
+    mover = biggest_mover(person_id, period, previous_period, rising=rising)
     if mover is None:
-        return None
+        return _edit_activity_reason(person_id, period, previous_period, rising)
 
     phrase = _SIGNAL_PHRASES.get(mover["source"])
     if not phrase:

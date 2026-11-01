@@ -70,6 +70,12 @@ def discover(period: str, limit: int = 200) -> list[tuple[str, int]]:
     return [(r.person, int(r.mentions)) for r in _client().query(sql).result()]
 
 
+# Names the sitelink rule below gets wrong, mapped to the person the news means.
+# "Pope Leo" picks the most-linked historical Leo, so the sitting pope reads as
+# deceased. Only add a name here after checking it by hand.
+WIKIDATA_SEARCH_OVERRIDES = {"Pope Leo": "Pope Leo XIV"}
+
+
 def is_living_person(name: str) -> tuple[bool, str]:
     """
     True if Wikidata says this is a human (Q5) who is not dead (no P570).
@@ -93,7 +99,7 @@ def is_living_person(name: str) -> tuple[bool, str]:
     try:
         resp = requests.get(
             "https://www.wikidata.org/w/api.php",
-            params={"action": "wbsearchentities", "search": name,
+            params={"action": "wbsearchentities", "search": WIKIDATA_SEARCH_OVERRIDES.get(name, name),
                     "language": "en", "format": "json", "limit": 7},
             headers=UA, timeout=15)
         resp.raise_for_status()

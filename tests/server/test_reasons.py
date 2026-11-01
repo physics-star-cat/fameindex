@@ -182,3 +182,19 @@ class TestPostTitles:
                          "<li>Olaf Scholz up 26.</li>\n</ul>")
         assert meta["title"] == stored
         assert "Biggest climber: Olaf Scholz." in meta["description"]
+
+
+class TestDirection:
+    @patch("server.blog.reasons.get_signals_for_person_week")
+    def test_a_fall_never_explains_a_climb(self, mock_get):
+        mock_get.side_effect = _mock_signals(
+            now={"wikipedia_pageviews": 326612, "gdelt_count": 885},
+            before={"wikipedia_pageviews": 422920, "gdelt_count": 1068})
+        assert describe_move(1, "2026-Q2", "2026-Q1", rising=True) is None
+
+    @patch("server.blog.reasons.get_signals_for_person_week")
+    def test_edit_burst_explains_a_climb_when_nothing_else_rose(self, mock_get):
+        mock_get.side_effect = _mock_signals(
+            now={"wikipedia_pageviews": 326612, "wiki_edit_velocity": 7.0},
+            before={"wikipedia_pageviews": 422920, "wiki_edit_velocity": 0.2})
+        assert "burst of edits" in describe_move(1, "2026-Q2", "2026-Q1", rising=True)

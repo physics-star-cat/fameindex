@@ -148,7 +148,7 @@ def check_data_quality(period: str, roster: int) -> list[str]:
     # "Name — unknown" and they fall out of every category/region page. Block
     # publish until it is filled in. (Sonam Wangchuk shipped at #2 as
     # "— unknown" this way.) Valid regions mirror generate.py PAGE_REGIONS.
-    VALID_REGIONS = {"global", "us", "uk", "eu", "asia"}
+    VALID_REGIONS = {"global", "us", "uk", "eu", "asia", "canada"}
     for pid, name, cat, region in con.execute(
             "select id, name, category, region from persons where active=1"):
         if not cat or cat == "unknown":
