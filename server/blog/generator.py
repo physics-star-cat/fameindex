@@ -370,8 +370,8 @@ def generate_weekly_post(week: str) -> dict:
         if not commentary:
             commentary = _GENERIC_NEW_TOP.format(name=top.person.name, score=top.fame_score)
     if notes.get(top.person.name):
-        note = notes[top.person.name]
-        commentary += f" {note[0].upper()}{note[1:]}."
+        # A checked reason replaces the stock line rather than following it.
+        commentary = f"{top.person.name} ({top.fame_score:.0f}): {notes[top.person.name]}."
     sections.append(f"<h3>Number One</h3>\n<p>{commentary}</p>")
 
     # --- Biggest Climbers ---
